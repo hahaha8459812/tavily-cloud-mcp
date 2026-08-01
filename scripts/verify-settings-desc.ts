@@ -57,25 +57,31 @@ async function main() {
     ok("country 提示不支持 ISO 代码", text.includes("不支持 ISO 代码"));
     ok("auto_parameters 积分警告", text.includes("search_depth 可能自动升为 advanced"));
     ok("include_image_descriptions 依赖提示", text.includes("需同时开启「包含图片」"));
-    ok("include_answer 积分规则说明", text.includes("积分由搜索深度决定"));
-    ok("chunks 标签范围 1-3", text.includes("每来源内容片段数（1-3）"));
+    ok("search_depth 含积分说明", text.includes("basic/fast/ultra-fast 1 积分，advanced 2 积分"));
+    ok("include_answer 不含积分说明", !text.includes("积分由搜索深度决定"));
+    ok("chunks 标签注明搜索用 1-3", text.includes("每来源内容片段数（搜索用 1-3）"));
     // include_domains/exclude_domains 已从面板移除，改为 web_search 的 AI 参数
     ok("面板不再显示域名白名单配置", !text.includes("仅在这些域名内搜索"));
     ok("面板不再显示域名黑名单配置", !text.includes("排除这些域名"));
 
-    // 2. 下拉选项档位描述
-    const answerOptions = await readSelectOptions(0);
+    // 2. 下拉选项档位描述（第 0 个 Select 是 search_depth）
+    const depthOptions = await readSelectOptions(0);
+    ok("search_depth 含 basic 档位", depthOptions.includes("basic — 通用结果（1 积分）"));
+    ok("search_depth 含 advanced 档位", depthOptions.includes("advanced — 更彻底更详细（2 积分）"));
+    ok("search_depth 含 fast 档位", depthOptions.includes("fast — 低延迟高相关（1 积分）"));
+    ok("search_depth 含 ultra-fast 档位", depthOptions.includes("ultra-fast — 极致低延迟（1 积分）"));
+
+    const answerOptions = await readSelectOptions(1);
     ok("include_answer 含快速答案档位", answerOptions.includes("快速答案（basic）"));
     ok("include_answer 含详细答案档位", answerOptions.includes("详细答案（advanced）"));
 
-    const rawContentOptions = await readSelectOptions(1);
+    const rawContentOptions = await readSelectOptions(2);
     ok("include_raw_content 含 markdown 推荐", rawContentOptions.includes("Markdown 格式（推荐）"));
     ok("include_raw_content 含 text 延迟提示", rawContentOptions.includes("纯文本（可能增加延迟）"));
 
-    // extract_depth 下拉（Search 有两个 Select 后是 InputNumber/Input/Switch，Extract 区的第一个 Select 需按顺序定位）
-    // 简单起见：统计 Select 总数，并验证提取深度选项在最后一个 Select 区附近出现
+    // extract_depth 下拉（Search 有 3 个 Select 后是 InputNumber/Input/Switch，Extract 区的 Select 需按顺序定位）
     const allSelects = await page.$$(".ant-select");
-    ok(`页面 Select 组件数 >= 4`, allSelects.length >= 4);
+    ok(`页面 Select 组件数 >= 5`, allSelects.length >= 5);
 
     await page.screenshot({ path: `${SHOT_DIR}\\settings-official-desc.png` });
     ok("截图已保存", true);

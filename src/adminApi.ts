@@ -280,9 +280,16 @@ export async function handleAdminApi(
           }
           if (body.mcpAuth !== undefined) {
             const current = config.mcpAuth ?? { enabled: false, apiKey: "" };
+            const nextEnabled = body.mcpAuth.enabled ?? current.enabled;
+            const nextApiKey = typeof body.mcpAuth.apiKey === "string" ? body.mcpAuth.apiKey : current.apiKey;
+            // 开启鉴权时密钥必须有值（前端已校验 ≥8 位，后端兜底防止绕过面板直调 API）
+            if (nextEnabled && (!nextApiKey || nextApiKey.trim().length < 8)) {
+              sendJson(res, 400, { error: "开启 MCP 鉴权时，共享密钥至少 8 位" });
+              return true;
+            }
             config.mcpAuth = {
-              enabled: body.mcpAuth.enabled ?? current.enabled,
-              apiKey: typeof body.mcpAuth.apiKey === "string" ? body.mcpAuth.apiKey : current.apiKey,
+              enabled: nextEnabled,
+              apiKey: nextApiKey.trim(),
             };
           }
           saveConfig(config);

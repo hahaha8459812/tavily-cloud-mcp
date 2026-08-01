@@ -5,6 +5,7 @@ import { api } from '../api/client'
 
 interface SettingsFormValues {
   // Search 面板参数（AI 不可修改）
+  search_depth: string
   include_answer: string
   include_raw_content: string
   include_images: boolean
@@ -50,6 +51,7 @@ export default function Settings() {
       const rawIncludeRawContent = search.include_raw_content
       const includeRawContent = rawIncludeRawContent === true || rawIncludeRawContent === 'true' ? 'markdown' : (rawIncludeRawContent as string) ?? 'false'
       form.setFieldsValue({
+        search_depth: (search.search_depth as string) ?? 'basic',
         include_answer: includeAnswer,
         include_raw_content: includeRawContent,
         include_images: (search.include_images as boolean) ?? false,
@@ -82,6 +84,7 @@ export default function Settings() {
     try {
       await api.saveConfig(
         {
+          search_depth: values.search_depth,
           include_answer: values.include_answer,
           include_raw_content: values.include_raw_content,
           include_images: values.include_images,
@@ -131,9 +134,23 @@ export default function Settings() {
       <Form form={form} layout="vertical" onFinish={handleSave} style={{ maxWidth: 640 }}>
         <Divider>搜索参数（Search）</Divider>
         <Form.Item
+          name="search_depth"
+          label="搜索深度"
+          extra="消耗积分：basic/fast/ultra-fast 1 积分，advanced 2 积分；advanced 更彻底但更慢"
+        >
+          <Select
+            options={[
+              { value: 'basic', label: 'basic — 通用结果（1 积分）' },
+              { value: 'advanced', label: 'advanced — 更彻底更详细（2 积分）' },
+              { value: 'fast', label: 'fast — 低延迟高相关（1 积分）' },
+              { value: 'ultra-fast', label: 'ultra-fast — 极致低延迟（1 积分）' },
+            ]}
+          />
+        </Form.Item>
+        <Form.Item
           name="include_answer"
           label="附带 LLM 答案"
-          extra="档位不额外计费；积分由搜索深度决定（basic 1 积分、advanced 2 积分），AI 调用时选择搜索深度"
+          extra="basic 返回快速答案，advanced 返回更详细答案"
         >
           <Select
             options={[
@@ -176,7 +193,7 @@ export default function Settings() {
         >
           <Switch />
         </Form.Item>
-        <Form.Item name="chunks_per_source" label="每来源内容片段数（1-3）">
+        <Form.Item name="chunks_per_source" label="每来源内容片段数（搜索用 1-3）">
           <InputNumber min={1} max={3} style={{ width: 120 }} />
         </Form.Item>
         <Form.Item

@@ -7,6 +7,7 @@ import { loadConfig, loadApiKeyEntries, type ApiKeyEntry } from "./configStore.j
 
 /** 从配置文件读取并转换为面板管控的 Search 参数 */
 export interface PanelSearchConfig {
+  searchDepth?: "advanced" | "basic" | "fast" | "ultra-fast";
   includeAnswer?: boolean | "basic" | "advanced";
   includeRawContent?: boolean | "markdown" | "text";
   includeImages?: boolean;
@@ -70,9 +71,47 @@ function isValidRangeNumber(value: unknown, min: number, max: number): boolean {
   return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
 }
 
+/**
+ * Tavily Search country 支持的国家全名白名单（小写，官方枚举）。
+ * 注意：必须用完整国家名，不支持 ISO 代码（如 us/cn）；仅 topic=general 时生效。
+ */
+const SUPPORTED_COUNTRIES = new Set([
+  "afghanistan", "albania", "algeria", "andorra", "angola", "argentina", "armenia",
+  "australia", "austria", "azerbaijan", "bahamas", "bahrain", "bangladesh", "barbados",
+  "belarus", "belgium", "belize", "benin", "bhutan", "bolivia", "bosnia and herzegovina",
+  "botswana", "brazil", "brunei", "bulgaria", "burkina faso", "burundi", "cambodia",
+  "cameroon", "canada", "cape verde", "central african republic", "chad", "chile", "china",
+  "colombia", "comoros", "congo", "costa rica", "croatia", "cuba", "cyprus", "czech republic",
+  "denmark", "djibouti", "dominican republic", "ecuador", "egypt", "el salvador",
+  "equatorial guinea", "eritrea", "estonia", "ethiopia", "fiji", "finland", "france",
+  "gabon", "gambia", "georgia", "germany", "ghana", "greece", "guatemala", "guinea", "haiti",
+  "honduras", "hungary", "iceland", "india", "indonesia", "iran", "iraq", "ireland", "israel",
+  "italy", "jamaica", "japan", "jordan", "kazakhstan", "kenya", "kuwait", "kyrgyzstan",
+  "latvia", "lebanon", "lesotho", "liberia", "libya", "liechtenstein", "lithuania",
+  "luxembourg", "madagascar", "malawi", "malaysia", "maldives", "mali", "malta",
+  "mauritania", "mauritius", "mexico", "moldova", "monaco", "mongolia", "montenegro",
+  "morocco", "mozambique", "myanmar", "namibia", "nepal", "netherlands", "new zealand",
+  "nicaragua", "niger", "nigeria", "north korea", "north macedonia", "norway", "oman",
+  "pakistan", "panama", "papua new guinea", "paraguay", "peru", "philippines", "poland",
+  "portugal", "qatar", "romania", "russia", "rwanda", "saudi arabia", "senegal", "serbia",
+  "singapore", "slovakia", "slovenia", "somalia", "south africa", "south korea",
+  "south sudan", "spain", "sri lanka", "sudan", "sweden", "switzerland", "syria", "taiwan",
+  "tajikistan", "tanzania", "thailand", "togo", "trinidad and tobago", "tunisia", "turkey",
+  "turkmenistan", "uganda", "ukraine", "united arab emirates", "united kingdom",
+  "united states", "uruguay", "uzbekistan", "venezuela", "vietnam", "yemen", "zambia",
+  "zimbabwe",
+]);
+
+/** 校验 country 是否为官方支持的国家全名（小写匹配） */
+function isValidCountry(value: unknown): boolean {
+  return typeof value === "string" && SUPPORTED_COUNTRIES.has(value.trim().toLowerCase());
+}
+
 /** 校验 panelSearch 各字段合法取值（L5） */
 function isValidPanelSearchValue(key: string, value: unknown): boolean {
   switch (key) {
+    case "search_depth":
+      return value === "advanced" || value === "basic" || value === "fast" || value === "ultra-fast";
     case "include_answer":
       return isValidIncludeAnswer(value);
     case "include_raw_content":
@@ -86,7 +125,8 @@ function isValidPanelSearchValue(key: string, value: unknown): boolean {
       // Search 面板参数的 chunks_per_source 官方限制 1-3（Extract 的 1-5 由 AI 参数控制）
       return isValidRangeNumber(value, 1, 3);
     case "country":
-      return typeof value === "string" && value.length > 0;
+      // 官方仅支持国家全名枚举（#5）；非法值会被忽略并告警
+      return isValidCountry(value);
     default:
       // include_domains/exclude_domains 已从面板配置移除，改为 web_search 的 AI 参数；
       // 旧 config.json 残留的这两个字段将被忽略
@@ -156,6 +196,11 @@ export function loadPanelSearchConfig(): PanelSearchConfig {
   }
 
   // 兜底：从环境变量读取
+  const searchDepth = process.env.TAVILY_SEARCH_DEPTH;
+  if (searchDepth === "advanced" || searchDepth === "basic" || searchDepth === "fast" || searchDepth === "ultra-fast") {
+    config.searchDepth = searchDepth;
+  }
+
   const includeAnswer = process.env.TAVILY_INCLUDE_ANSWER;
   if (includeAnswer && includeAnswer !== "") {
     config.includeAnswer =
@@ -194,6 +239,9 @@ export function applyPanelSearchConfig(
 ): TavilySearchParams {
   const merged: TavilySearchParams = { ...params };
 
+  if (panelConfig.searchDepth !== undefined) {
+    merged.searchDepth = panelConfig.searchDepth;
+  }
   if (panelConfig.includeAnswer !== undefined) {
     merged.includeAnswer = panelConfig.includeAnswer;
   }

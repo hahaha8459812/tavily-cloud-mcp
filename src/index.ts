@@ -57,7 +57,15 @@ function getMcpApiKey(): string {
   try {
     const mcpAuth = loadConfig().mcpAuth;
     if (mcpAuth?.enabled) {
-      return mcpAuth.apiKey ?? "";
+      const key = mcpAuth.apiKey ?? "";
+      if (!key) {
+        // 配置错误防御：开启鉴权但密钥为空时按未开启处理并告警，
+        // 避免面板显示已开启而实际未鉴权的情况被静默忽略
+        console.warn(
+          "[配置] mcpAuth.enabled 为 true 但 apiKey 为空，MCP 鉴权未生效。请通过面板设置至少 8 位的共享密钥。",
+        );
+      }
+      return key;
     }
   } catch {
     // 配置读取异常时回退环境变量，不阻断服务
@@ -130,10 +138,6 @@ function createMcpServer(): McpServer {
           .max(20)
           .default(5)
           .describe("返回结果数量，默认 5，最大 20"),
-        search_depth: z
-          .enum(["advanced", "basic", "fast", "ultra-fast"])
-          .default("basic")
-          .describe("搜索深度：basic 通用结果、advanced 更彻底但更慢更贵、fast 低延迟高相关、ultra-fast 极致低延迟最省"),
         topic: z
           .enum(["general", "news", "finance"])
           .optional()
@@ -168,7 +172,7 @@ function createMcpServer(): McpServer {
           .describe("排除这些域名的搜索结果（用户要求排除某网站时设为该网站域名），最多 150 个"),
       },
     },
-    async ({ query, max_results, search_depth, topic, time_range, start_date, end_date, exact_match, include_domains, exclude_domains }) => {
+    async ({ query, max_results, topic, time_range, start_date, end_date, exact_match, include_domains, exclude_domains }) => {
       if (!query) {
         return errorResult("错误：query 参数不能为空");
       }
@@ -177,7 +181,6 @@ function createMcpServer(): McpServer {
         const aiParams = {
           query,
           maxResults: max_results,
-          searchDepth: search_depth,
           topic,
           timeRange: time_range,
           startDate: start_date,
@@ -234,7 +237,7 @@ function createMcpServer(): McpServer {
           .min(1)
           .max(5)
           .optional()
-          .describe("每个来源返回的内容片段数（需同时提供 query），1-5"),
+          .describe("提取每个来源返回的内容片段数（提取操作用 1-5，需同时提供 query）"),
         extract_depth: z
           .enum(["basic", "advanced"])
           .optional()
