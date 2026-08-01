@@ -18,6 +18,7 @@ import {
  * - GET  /api/status                  面板整体状态（密钥池概览 + 面板参数）
  * - POST /api/keys                    新增密钥
  * - DELETE /api/keys?key=xxx          删除密钥
+ * - POST /api/keys/re-enable          手动重新启用被停用的密钥
  * - POST /api/refresh-usage           刷新密钥池额度
  * - GET  /api/config                  读取面板参数
  * - PUT  /api/config                  保存面板参数
@@ -208,10 +209,10 @@ export async function handleAdminApi(
   try {
     switch (url.pathname) {
       case "/api/status": {
-        // 支持 ?refresh=1 强制刷新额度后再返回，解决面板首屏无数据需手动刷新的问题
+        // 支持 ?refresh=1 强制刷新额度后再返回，解决面板首屏无数据需手动刷新的问题。
+        // 刷新后状态变化由 keyPool 的 onPersist 回调负责落盘，此处无需重复持久化
         if (url.searchParams.get("refresh") === "1") {
-          await keyPool.refreshUsage();
-          persistKeys(keyPool);
+          await keyPool.refreshUsage(true);
         }
         const overview = keyPool.getUsageOverview();
         // 返回面板可编辑的原始配置（snake_case，与前端表单一致）
@@ -278,13 +279,34 @@ export async function handleAdminApi(
         return true;
       }
 
+      case "/api/keys/re-enable": {
+        if (req.method !== "POST") {
+          sendJson(res, 405, { error: "Method not allowed" });
+          return true;
+        }
+        const body = (await readJsonBody(req)) as { id?: string };
+        if (!body.id) {
+          sendJson(res, 400, { error: "缺少 id 参数" });
+          return true;
+        }
+        const reenabled = keyPool.reenableKeyById(body.id);
+        if (!reenabled) {
+          sendJson(res, 404, { error: "密钥不存在" });
+          return true;
+        }
+        persistKeys(keyPool);
+        sendJson(res, 200, { ok: true });
+        return true;
+      }
+
       case "/api/refresh-usage": {
         if (req.method !== "POST") {
           sendJson(res, 405, { error: "Method not allowed" });
           return true;
         }
-        await keyPool.refreshUsage();
-        persistKeys(keyPool);
+        // 用户主动点击刷新：强制拉取最新额度，不受节流限制。
+        // 刷新后状态变化由 keyPool 的 onPersist 回调负责落盘
+        await keyPool.refreshUsage(true);
         const overview = keyPool.getUsageOverview();
         sendJson(res, 200, { ok: true, keys: overview.keys, accounts: overview.accounts });
         return true;
@@ -375,12 +397,15 @@ export async function handleAdminApi(
   }
 }
 
-/** 将当前密钥池同步回 config.json，保证面板增删密钥与 token 持久化 */
+/** 将当前密钥池同步回 config.json，保证面板增删密钥、token 与停用状态/套餐缓存持久化 */
 export function persistKeys(keyPool: TavilyKeyPool): void {
   const config = loadConfig() as AppConfig & { apiKeys?: unknown };
-  // null token 转为 undefined，避免 config.json 中出现冗余 null
-  config.apiKeys = keyPool
-    .getRawKeyEntries()
-    .map(({ key, accountToken }) => ({ key, ...(accountToken ? { accountToken } : {}) }));
+  // 可选字段为 null/undefined 时不写入，避免 config.json 中出现冗余 null
+  config.apiKeys = keyPool.getRawKeyEntries().map(({ key, accountToken, disableState, accountInfo }) => ({
+    key,
+    ...(accountToken ? { accountToken } : {}),
+    ...(disableState ? { disableState } : {}),
+    ...(accountInfo ? { accountInfo } : {}),
+  }));
   saveConfig(config);
 }

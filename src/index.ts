@@ -89,18 +89,21 @@ const MAX_BODY_BYTES = 1024 * 1024; // 请求体上限 1MB
 
 // 多密钥轮询池：支持多 API Key 轮询 + 429/401 故障转移 + 官网 token 实时额度
 const keyPool = new TavilyKeyPool(loadTavilyApiKeyEntries());
+// 停用状态变化（429/432/433/401 停用、手动恢复、额度恢复、套餐缓存更新）时落盘 config.json
+keyPool.setPersistCallback(() => persistKeys(keyPool));
 
 // 启动后异步预热各密钥额度缓存，保证管理面板首屏即可显示真实额度，无需手动刷新
 void keyPool.refreshUsage().catch((error) => {
   console.error("启动预热额度缓存失败：", error instanceof Error ? error.message : error);
 });
 
-// 自动续期：每 6 小时用现有 appSession token 调官网接口，捕获 Set-Cookie 续期并持久化
+// 自动续期：每 6 小时用现有 appSession token 调官网接口，捕获 Set-Cookie 续期并持久化。
+// 传 force=true 跳过节流，确保周期内必定真正请求官网（节流是给 get_key_usage 等高频调用用的）。
+// 状态变化（token 续期/套餐缓存/额度恢复）由 keyPool 的 onPersist 回调负责落盘
 const ACCOUNT_TOKEN_RENEW_INTERVAL_MS = 6 * 60 * 60 * 1000;
 setInterval(() => {
   void (async () => {
-    await keyPool.refreshUsage();
-    persistKeys(keyPool);
+    await keyPool.refreshUsage(true);
   })().catch((error) => {
     console.error("额度自动续期失败：", error instanceof Error ? error.message : error);
   });

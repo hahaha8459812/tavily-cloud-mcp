@@ -28,22 +28,44 @@ import {
   SyncOutlined,
   EditOutlined,
   MailOutlined,
+  StopOutlined,
+  RollbackOutlined,
 } from '@ant-design/icons'
 import { api, type StatusResponse, type KeyUsageItem } from '../api/client'
 
-/** 健康状态徽标 */
-function HealthTag({ health }: { health: string }) {
-  if (health === 'healthy') {
+/** 健康状态徽标：正常 / 限流中(429) / 额度耗尽(432) / 永久停用(433或401) */
+function HealthTag({ item }: { item: KeyUsageItem }) {
+  if (item.health === 'healthy') {
     return (
       <Tag color="success" icon={<CheckCircleOutlined />}>
         正常
       </Tag>
     )
   }
+  if (item.health === 'rate_limited') {
+    return (
+      <Tooltip title={item.disabledNote ?? '限流中'}>
+        <Tag color="orange" icon={<SyncOutlined spin />}>
+          限流中
+        </Tag>
+      </Tooltip>
+    )
+  }
+  if (item.health === 'quota_exhausted') {
+    return (
+      <Tooltip title={item.disabledNote ?? '套餐额度耗尽'}>
+        <Tag color="volcano" icon={<StopOutlined />}>
+          额度耗尽
+        </Tag>
+      </Tooltip>
+    )
+  }
   return (
-    <Tag color="error" icon={<SyncOutlined spin />}>
-      临时禁用
-    </Tag>
+    <Tooltip title={item.disabledNote ?? '永久停用'}>
+      <Tag color="error" icon={<StopOutlined />}>
+        永久停用
+      </Tag>
+    </Tooltip>
   )
 }
 
@@ -52,22 +74,36 @@ function KeyCard({
   item,
   onRemove,
   onEditToken,
+  onReenable,
 }: {
   item: KeyUsageItem
   onRemove: (keyId: string) => void
   onEditToken: (item: KeyUsageItem) => void
+  onReenable: (item: KeyUsageItem) => void
 }) {
   const planPercent =
     item.planLimit !== null && item.planLimit > 0
       ? Math.min(Math.round(((item.planUsage ?? 0) / item.planLimit) * 100), 100)
       : null
 
+  // 额度耗尽/永久停用支持手动重新启用（限流中会自动恢复，不提供按钮）
+  const canReenable = item.health === 'quota_exhausted' || item.health === 'disabled'
+
   return (
     <Card className="key-card">
       <div className="key-card-header">
         <span className="key-card-keyname">{item.apiKeyMasked}</span>
         <Space size={4}>
-          <HealthTag health={item.health} />
+          <HealthTag item={item} />
+          {canReenable && (
+            <Popconfirm
+              title="确认重新启用该密钥？"
+              description="重新启用后将重新进入轮询池"
+              onConfirm={() => onReenable(item)}
+            >
+              <Button type="text" size="small" icon={<RollbackOutlined />} />
+            </Popconfirm>
+          )}
           <Tooltip title={item.hasAccountToken ? '更新 Token' : '配置 Token'}>
             <Button
               type="text"
@@ -234,6 +270,16 @@ export default function Dashboard() {
     }
   }
 
+  const handleReenable = async (item: KeyUsageItem) => {
+    try {
+      await api.reenableKey(item.id)
+      message.success('密钥已重新启用')
+      await loadStatus(true, true)
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '重新启用失败')
+    }
+  }
+
   const openTokenModal = (item: KeyUsageItem) => {
     setTokenEditing(item)
     tokenForm.setFieldsValue({ accountToken: '' })
@@ -382,6 +428,7 @@ export default function Dashboard() {
                   item={key}
                   onRemove={(keyId) => void handleRemove(keyId)}
                   onEditToken={(item) => openTokenModal(item)}
+                  onReenable={(item) => void handleReenable(item)}
                 />
               </Col>
             ))}

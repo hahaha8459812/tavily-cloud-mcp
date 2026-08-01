@@ -138,7 +138,10 @@ export interface KeyUsageItem {
   keyRemaining: number | null;
   planUsage: number | null;
   planLimit: number | null;
-  health: string;
+  health: 'healthy' | 'rate_limited' | 'quota_exhausted' | 'disabled';
+  disabledNote: string | null;
+  disabledUntil: number | null;
+  quotaResetAt: number | null;
 }
 
 /** 账户级额度（按 Tavily 账户签名去重，同一账户多 key 只统计一次） */
@@ -184,6 +187,11 @@ export const api = {
   removeKey: (keyId: string) =>
     request<{ ok: boolean; keyCount: number }>(`/keys?id=${encodeURIComponent(keyId)}`, {
       method: "DELETE",
+    }),
+  reenableKey: (keyId: string) =>
+    request<{ ok: boolean }>("/keys/re-enable", {
+      method: "POST",
+      body: { id: keyId },
     }),
   refreshUsage: () =>
     request<{ ok: boolean; keys: KeyUsageItem[]; accounts: AccountUsageItem[] }>("/refresh-usage", {

@@ -4,7 +4,7 @@ import { TavilyKeyPool } from "../src/keyPool.js";
 /**
  * 验证密钥池故障转移逻辑：
  * 1. 无效 key（401）+ 有效 key，搜索应自动切到有效 key
- * 2. 连续失败触发临时禁用
+ * 2. 无效 key 触发立即永久停用（401），池内无可用密钥时全部调用失败
  * 3. 额度查询概览脱敏
  */
 async function main() {
@@ -22,7 +22,7 @@ async function main() {
   console.log(`[OK] 搜索成功，返回 ${result.results.length} 条，已自动切换到有效密钥`);
   console.log(`[OK] 密钥池大小: ${pool.size}`);
 
-  console.log("[测试 2] 连续失败触发临时禁用...");
+  console.log("[测试 2] 无效 key 立即永久停用（401）...");
   const badPool = new TavilyKeyPool(["tvly-invalid-key-for-test"]);
   let failedCount = 0;
   for (let i = 0; i < 5; i++) {

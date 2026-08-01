@@ -165,6 +165,16 @@ export interface TavilyAccountInfo {
   usage: number;
   limit: number;
   planName: string;
+  /** 本计费周期开始时间（ISO 字符串，如 2026-08-01T05:34:43），用于精算套餐额度重置时间 */
+  lastReset: string | null;
+  /** 套餐额度重置周期：daily/weekly/monthly 等，配合 lastReset 推算下次重置时间 */
+  resetCycle: string | null;
+  /** PayGo 模式是否开启 */
+  paygo: boolean;
+  /** PayGo 当前已用额度（非 PayGo 或无数据时为 0） */
+  paygoUsage: number;
+  /** PayGo 用户设置的上限；非 PayGo 或未设置为 null */
+  paygoLimit: number | null;
 }
 
 /** 官网 /api/account 响应解析结果，附带回写的新 token（用于自动续期） */
@@ -178,10 +188,25 @@ export class TavilyClientError extends Error {
     message: string,
     public readonly statusCode: number | null,
     public readonly body?: string,
+    /** 429 限流响应的 retry-after 秒数；无该响应头时为 null */
+    public readonly retryAfterMs: number | null = null,
   ) {
     super(message);
     this.name = "TavilyClientError";
   }
+}
+
+/** 解析 429 限流响应头 retry-after（秒数或 HTTP 日期），解析失败返回 null */
+function parseRetryAfterMs(retryAfter: string | null): number | null {
+  if (!retryAfter) {
+    return null;
+  }
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return seconds * 1000;
+  }
+  const dateMs = Date.parse(retryAfter);
+  return Number.isFinite(dateMs) ? Math.max(dateMs - Date.now(), 0) : null;
 }
 
 export class TavilyClient {
@@ -212,6 +237,7 @@ export class TavilyClient {
         `Tavily API 请求失败：HTTP ${response.status}`,
         response.status,
         responseBody,
+        parseRetryAfterMs(response.headers.get("retry-after")),
       );
     }
 
@@ -339,6 +365,7 @@ export class TavilyClient {
         `Tavily 研究任务查询失败：HTTP ${response.status}`,
         response.status,
         responseBody,
+        parseRetryAfterMs(response.headers.get("retry-after")),
       );
     }
 
@@ -372,6 +399,11 @@ export async function getAccountUsageByToken(
     current_plan?: string;
     plan_display_name?: string;
     email?: string;
+    last_reset?: string;
+    reset_cycle?: string;
+    paygo?: boolean;
+    paygo_usage?: number;
+    paygo_limit?: number | null;
   };
 
   // 捕获 Set-Cookie 中的新 appSession，用于自动续期
@@ -390,6 +422,12 @@ export async function getAccountUsageByToken(
       usage: body.usage ?? 0,
       limit: body.limit ?? 0,
       planName: body.plan_display_name ?? body.current_plan ?? "unknown",
+      lastReset: typeof body.last_reset === "string" ? body.last_reset : null,
+      resetCycle: typeof body.reset_cycle === "string" ? body.reset_cycle : null,
+      paygo: body.paygo === true,
+      paygoUsage: typeof body.paygo_usage === "number" ? body.paygo_usage : 0,
+      paygoLimit:
+        typeof body.paygo_limit === "number" && body.paygo_limit > 0 ? body.paygo_limit : null,
     },
     newToken,
   };

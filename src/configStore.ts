@@ -22,10 +22,28 @@ export interface AdminCredentials {
  * 池内密钥条目。
  * accountToken 为官网 appSession JWT（可选），用于通过官网 /api/account 实时查询额度；
  * 未配置时该 key 不展示额度，仅正常参与轮询调用。
+ * disableState 持久化停用状态（容器重启后恢复）；accountInfo 持久化最近一次套餐额度缓存
+ * （含 lastReset/resetCycle，用于 432 精算重置时间，重启后免立即请求官网）。
  */
 export interface ApiKeyEntry {
   key: string;
   accountToken?: string;
+  disableState?: {
+    reason: "rate_limited" | "quota_exhausted" | "disabled";
+    until: number | null;
+    note?: string;
+  };
+  accountInfo?: {
+    email: string;
+    usage: number;
+    limit: number;
+    planName: string;
+    lastReset?: string | null;
+    resetCycle?: string | null;
+    paygo?: boolean;
+    paygoUsage?: number;
+    paygoLimit?: number | null;
+  };
 }
 
 /** config.json 的完整结构 */
@@ -157,7 +175,14 @@ export function loadApiKeyEntries(): ApiKeyEntry[] {
   const appConfig = loadConfig();
   const rawEntries = appConfig.apiKeys ?? [];
   return rawEntries.map((entry) =>
-    typeof entry === "string" ? { key: entry } : { key: entry.key, accountToken: entry.accountToken },
+    typeof entry === "string"
+      ? { key: entry }
+      : {
+          key: entry.key,
+          accountToken: entry.accountToken,
+          disableState: entry.disableState,
+          accountInfo: entry.accountInfo,
+        },
   );
 }
 
