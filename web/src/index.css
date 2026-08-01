@@ -1,0 +1,438 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: #09090f;
+  color: #e4e4f0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', 'Helvetica Neue',
+    Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 90% 110%, rgba(217, 70, 239, 0.08), transparent);
+  background-attachment: fixed;
+}
+
+/* ============ 登录页 ============ */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-image:
+    radial-gradient(ellipse 60% 45% at 20% 20%, rgba(99, 102, 241, 0.18), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 30%, rgba(139, 92, 246, 0.14), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 60% 90%, rgba(217, 70, 239, 0.1), transparent 60%);
+}
+
+.login-card {
+  width: 400px;
+  padding: 40px 34px;
+  border-radius: 20px;
+  background: rgba(17, 17, 26, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.login-logo {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 18px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6 50%, #d946ef);
+  box-shadow: 0 8px 28px rgba(99, 102, 241, 0.45);
+  position: relative;
+}
+
+.login-logo::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 19px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.4), rgba(217, 70, 239, 0.4));
+  filter: blur(12px);
+  z-index: -1;
+  opacity: 0.6;
+}
+
+.login-title {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, #a5b4fc, #c4b5fd 55%, #f0abfc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: 0.3px;
+}
+
+.login-subtitle {
+  font-size: 13px;
+  color: #a5a5bd;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============ 面板主布局 ============ */
+.panel-layout {
+  min-height: 100vh;
+  background: transparent;
+}
+
+.panel-sider {
+  border-right: 1px solid rgba(99, 102, 241, 0.1);
+  background: rgba(13, 13, 22, 0.7) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.panel-brand {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: linear-gradient(90deg, #a5b4fc, #c4b5fd 55%, #f0abfc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.panel-brand-icon {
+  font-size: 20px;
+  color: #818cf8;
+  -webkit-text-fill-color: #818cf8;
+}
+
+.panel-content {
+  padding: 28px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* 页面标题 */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f4f4fb;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+}
+
+.page-title .anticon {
+  margin-right: 10px;
+  color: #818cf8;
+}
+
+/* ============ 统计卡片 ============ */
+.stat-card {
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  border-radius: 16px;
+  background: rgba(17, 17, 26, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease,
+    box-shadow 0.25s ease;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.5), transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(129, 140, 248, 0.35);
+  box-shadow: 0 16px 40px rgba(99, 102, 241, 0.15);
+}
+
+.stat-card:hover::before {
+  opacity: 1;
+}
+
+.stat-card .ant-card-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px;
+}
+
+.stat-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.stat-icon-indigo {
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.14);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+}
+
+.stat-icon-violet {
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.14);
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.2);
+}
+
+.stat-icon-emerald {
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.12);
+  box-shadow: 0 4px 16px rgba(52, 211, 153, 0.16);
+}
+
+.stat-icon-amber {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.12);
+  box-shadow: 0 4px 16px rgba(251, 191, 36, 0.16);
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f4f4fb;
+  line-height: 1.15;
+  letter-spacing: 0.3px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #8a8aa3;
+  margin-top: 4px;
+}
+
+/* ============ 账户 Plan 长进度条卡片 ============ */
+.plan-usage-card .ant-card-body {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.plan-usage-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+}
+
+.plan-usage-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-usage-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #8a8aa3;
+  margin-bottom: 10px;
+}
+
+.plan-usage-percent {
+  font-size: 26px;
+  font-weight: 700;
+  color: #f4f4fb;
+  letter-spacing: 0.3px;
+  background: linear-gradient(135deg, #a5b4fc, #c4b5fd);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.plan-usage-total {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #8a8aa3;
+}
+
+.plan-usage-total b {
+  color: #c7d2fe;
+  font-weight: 600;
+}
+
+/* ============ 密钥额度卡片 ============ */
+.key-card {
+  border-radius: 16px;
+  background: rgba(17, 17, 26, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease,
+    box-shadow 0.25s ease;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.key-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 0 0 0 80px;
+  background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.1), transparent 70%);
+  pointer-events: none;
+}
+
+.key-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(129, 140, 248, 0.35);
+  box-shadow: 0 16px 40px rgba(99, 102, 241, 0.14);
+}
+
+.key-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.key-card-keyname {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  color: #c7d2fe;
+}
+
+.key-card-section {
+  margin-bottom: 14px;
+}
+
+.key-card-section-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.key-card-section-label {
+  font-size: 12px;
+  color: #8a8aa3;
+}
+
+.key-card-section-value {
+  font-size: 12px;
+  color: #c7d2fe;
+  font-weight: 500;
+}
+
+.key-card-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.key-card-metric-label {
+  font-size: 12px;
+  color: #8a8aa3;
+}
+
+.key-card-metric-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e4e4f0;
+}
+
+/* 面板级通用卡片 */
+.glass-card {
+  border: 1px solid rgba(99, 102, 241, 0.14);
+  border-radius: 16px;
+  background: rgba(17, 17, 26, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* 空状态引导 */
+.ant-empty-description {
+  color: #8a8aa3 !important;
+}
+
+/* 表单标签 */
+.ant-form-item-label > label {
+  color: #9d9db3 !important;
+  font-weight: 500;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a44;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a5c;
+}

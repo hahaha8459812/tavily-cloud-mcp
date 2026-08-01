@@ -1,0 +1,31 @@
+{
+  "name": "tavily-cloud-mcp",
+  "version": "0.1.0",
+  "description": "基于 Tavily API 的云端 MCP 服务器，支持多 API Key 轮询与额度查询",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "build:web": "npm --prefix web run build",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx scripts/test-integration.ts && tsx scripts/test-keypool.ts && tsx scripts/test-edge-cases.ts && tsx scripts/test-admin-api.ts",
+    "test:tools": "tsx scripts/test-all-tools.ts",
+    "test:hot": "tsx scripts/test-hot-reload.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "puppeteer-core": "^25.4.0",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  }
+}
