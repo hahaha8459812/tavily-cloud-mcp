@@ -38,6 +38,9 @@ export interface AppConfig {
     enabled: boolean;
     apiKey: string;
   };
+  /** 是否启用高开销的深度研究工具（research_create/research_get_status）；
+   * 关闭后 MCP 工具列表中不再注册这两个工具（面板开关控制） */
+  researchEnabled: boolean;
   /** 面板管控的 Search 参数（对应 config.ts 的 PanelSearchConfig 字段） */
   panelSearch: Record<string, unknown>;
   /** 面板管控的 Extract/Crawl 参数（对应 config.ts 的 PanelExtractCrawlConfig 字段） */
@@ -58,6 +61,7 @@ const DEFAULT_CONFIG: AppConfig = {
     enabled: false,
     apiKey: "",
   },
+  researchEnabled: true,
   panelSearch: {},
   panelExtractCrawl: {},
 };
@@ -89,6 +93,8 @@ export function loadConfig(): AppConfig {
       apiKeys: parsed.apiKeys,
       // 兼容旧版本 config.json：无 mcpAuth 字段时回退到关闭状态
       mcpAuth: parsed.mcpAuth ?? { enabled: false, apiKey: "" },
+      // 兼容旧版本 config.json：无 researchEnabled 字段时默认启用（行为与之前一致）
+      researchEnabled: parsed.researchEnabled ?? true,
       panelSearch: parsed.panelSearch ?? {},
       panelExtractCrawl: parsed.panelExtractCrawl ?? {},
     };

@@ -124,6 +124,9 @@ function createMcpServer(): McpServer {
     version: "0.1.0",
   });
 
+  // 高开销深度研究工具开关（面板配置）：关闭后不注册 research 工具
+  const researchEnabled = loadConfig().researchEnabled ?? true;
+
   server.registerTool(
     "web_search",
     {
@@ -483,8 +486,10 @@ function createMcpServer(): McpServer {
     },
   );
 
-  server.registerTool(
-    "research_create",
+  // 深度研究工具（高开销，几十到上百积分/次）：面板可关闭
+  if (researchEnabled) {
+    server.registerTool(
+      "research_create",
     {
       description:
         "对给定主题/问题做多来源综合深度研究，适合需要从多个来源收集信息才能回答的任务。耗时约 30-90 秒，创建后用 research_get_status 轮询结果；需要快速答案时优先用 web_search",
@@ -573,7 +578,8 @@ function createMcpServer(): McpServer {
         return errorResult(`查询研究任务失败：${message}`);
       }
     },
-  );
+    );
+  }
 
   server.registerTool(
     "get_key_usage",

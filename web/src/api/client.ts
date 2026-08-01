@@ -96,6 +96,7 @@ export interface PanelConfig {
   panelSearch: Record<string, unknown>;
   panelExtractCrawl: Record<string, unknown>;
   mcpAuth: McpAuthConfig;
+  researchEnabled: boolean;
 }
 
 export interface StatusResponse extends PanelConfig {
@@ -132,10 +133,14 @@ export const api = {
     panelSearch: Record<string, unknown>,
     panelExtractCrawl: Record<string, unknown>,
     mcpAuth?: McpAuthConfig,
+    researchEnabled?: boolean,
   ) =>
     request<{ ok: boolean }>("/config", {
       method: "PUT",
-      body: mcpAuth ? { panelSearch, panelExtractCrawl, mcpAuth } : { panelSearch, panelExtractCrawl },
+      body:
+        mcpAuth || researchEnabled !== undefined
+          ? { panelSearch, panelExtractCrawl, mcpAuth, researchEnabled }
+          : { panelSearch, panelExtractCrawl },
     }),
   changePassword: (oldPassword: string, newPassword: string) =>
     request<{ ok: boolean }>("/password", {

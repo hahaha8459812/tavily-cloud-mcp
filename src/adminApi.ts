@@ -189,6 +189,7 @@ export async function handleAdminApi(
           panelSearch: appConfig.panelSearch ?? {},
           panelExtractCrawl: appConfig.panelExtractCrawl ?? {},
           mcpAuth: appConfig.mcpAuth ?? { enabled: false, apiKey: "" },
+          researchEnabled: appConfig.researchEnabled ?? true,
         });
         return true;
       }
@@ -262,6 +263,7 @@ export async function handleAdminApi(
             panelSearch: appConfig.panelSearch ?? {},
             panelExtractCrawl: appConfig.panelExtractCrawl ?? {},
             mcpAuth: appConfig.mcpAuth ?? { enabled: false, apiKey: "" },
+            researchEnabled: appConfig.researchEnabled ?? true,
           });
           return true;
         }
@@ -270,6 +272,7 @@ export async function handleAdminApi(
             panelSearch?: Record<string, unknown>;
             panelExtractCrawl?: Record<string, unknown>;
             mcpAuth?: { enabled?: boolean; apiKey?: string };
+            researchEnabled?: boolean;
           };
           const config = loadConfig();
           if (body.panelSearch !== undefined) {
@@ -277,6 +280,9 @@ export async function handleAdminApi(
           }
           if (body.panelExtractCrawl !== undefined) {
             config.panelExtractCrawl = body.panelExtractCrawl;
+          }
+          if (body.researchEnabled !== undefined) {
+            config.researchEnabled = body.researchEnabled === true;
           }
           if (body.mcpAuth !== undefined) {
             const current = config.mcpAuth ?? { enabled: false, apiKey: "" };

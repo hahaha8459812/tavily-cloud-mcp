@@ -4,10 +4,10 @@
 
 ## 功能特性
 
-- **MCP Server（Streamable HTTP）**：提供 `web_search` / `web_extract` / `web_crawl` / `web_map` / `research_create` / `research_get_status` / `get_key_usage` 共 7 个工具
+- **MCP Server（Streamable HTTP）**：提供 `web_search` / `web_extract` / `web_crawl` / `web_map` / `research_create` / `research_get_status` / `get_key_usage` 共 7 个工具（深度研究为异步任务，拆为创建+查询两个工具，可在面板关闭）
 - **多密钥轮询池**：round-robin 负载均衡，401/429/432/433 自动故障转移，连续失败熔断临时禁用
 - **实时额度查询**：使用官网 appSession token 调用内部 `/api/account`，绕开公共 `/usage` 接口的计费周期滞后问题，每 6 小时自动续期
-- **Web 管理面板**：概览（密钥数量/健康状态/账户 Plan 用量进度条）、密钥管理（添加/删除/配置 Token）、参数配置（面板管控参数热修改，无需重启）、修改面板密码
+- **Web 管理面板**：概览（密钥数量/健康状态/账户 Plan 用量进度条）、密钥管理（添加/删除/配置 Token）、参数配置（面板管控参数热修改，无需重启）、工具开关（可关闭高开销的深度研究工具）、修改面板密码
 - **面板密码登录**：个人项目仅需密码，浏览器记住密码后自动登录
 - **Docker 一键部署**：三阶段构建，config.json 卷挂载持久化
 
@@ -98,6 +98,7 @@ npm start           # 启动，默认端口 8080
 
 - **Search**：搜索深度（basic/advanced/fast/ultra-fast，积分 1/2/1/1）、附带 LLM 答案、原始内容、图片、站点图标、每来源片段数、国家加权、自动参数（域名白名单/黑名单已改为 web_search 的 AI 调用参数）
 - **Extract/Crawl**：提取深度、内容格式、图片、站点图标
+- **工具开关**：可关闭高开销的深度研究工具（research_create / research_get_status，单次几十到上百积分）。关闭后 MCP 工具列表不再注册这两个工具；低开销工具（搜索/提取/爬取/地图）不受影响
 
 ## 开发与测试
 
