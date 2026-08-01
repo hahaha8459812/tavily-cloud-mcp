@@ -71,6 +71,7 @@ const DEFAULT_CONFIG: AppConfig = {
  * 保留 apiKeys 字段（H5 修复）：面板保存参数/改密走"读全量→改字段→写回"时不会丢密钥。
  * 文件不存在时返回默认配置（视为首次部署）；文件损坏时打告警日志并返回默认配置，
  * 避免静默以默认凭据对外服务而无人察觉（H2）。
+ * 文件存在但缺少新版本必需字段时：自动补全并写回磁盘，保证 config.json 自愈为完整结构。
  */
 export function loadConfig(): AppConfig {
   // 缓存命中（mtime 未变）直接返回，避免每次工具调用同步读盘（L6）
@@ -98,6 +99,16 @@ export function loadConfig(): AppConfig {
       panelSearch: parsed.panelSearch ?? {},
       panelExtractCrawl: parsed.panelExtractCrawl ?? {},
     };
+    // 文件存在但缺少必需字段时自动补全写回（旧版 config 升级为新结构，避免新旧字段混搭）
+    const missingRequiredField =
+      parsed.admin === undefined ||
+      parsed.mcpAuth === undefined ||
+      parsed.researchEnabled === undefined ||
+      parsed.panelSearch === undefined ||
+      parsed.panelExtractCrawl === undefined;
+    if (missingRequiredField) {
+      saveConfig(config);
+    }
     try {
       configCache = { mtimeMs: statSync(CONFIG_FILE_PATH).mtimeMs, config };
     } catch {
