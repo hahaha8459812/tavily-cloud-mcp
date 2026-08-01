@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, renameSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
@@ -8,6 +8,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** 配置文件默认路径：项目根目录下的 config.json（可通过环境变量覆盖） */
 export const CONFIG_FILE_PATH =
   process.env.CONFIG_FILE ?? path.resolve(__dirname, "..", "config.json");
+
+/** config 文件缓存：mtime 变化时自动失效（L6），避免每次工具调用同步读盘 */
+let configCache: { mtimeMs: number; config: AppConfig } | null = null;
 
 /** 管理员账号凭据（password 存储为 scrypt 哈希，旧明文会在保存时自动迁移） */
 export interface AdminCredentials {
@@ -53,19 +56,47 @@ const DEFAULT_CONFIG: AppConfig = {
 /**
  * 读取配置文件。
  * 保留 apiKeys 字段（H5 修复）：面板保存参数/改密走"读全量→改字段→写回"时不会丢密钥。
- * 文件不存在或损坏时返回默认配置（视为首次部署）。
+ * 文件不存在时返回默认配置（视为首次部署）；文件损坏时打告警日志并返回默认配置，
+ * 避免静默以默认凭据对外服务而无人察觉（H2）。
  */
 export function loadConfig(): AppConfig {
+  // 缓存命中（mtime 未变）直接返回，避免每次工具调用同步读盘（L6）
+  if (configCache) {
+    try {
+      const currentMtime = statSync(CONFIG_FILE_PATH).mtimeMs;
+      if (currentMtime === configCache.mtimeMs) {
+        return configCache.config;
+      }
+    } catch {
+      // statSync 失败（文件被删）则当作首次读取
+    }
+  }
+
   try {
     const raw = readFileSync(CONFIG_FILE_PATH, "utf8");
     const parsed = JSON.parse(raw) as Partial<AppConfig>;
-    return {
+    const config: AppConfig = {
       admin: parsed.admin ?? DEFAULT_CONFIG.admin,
       apiKeys: parsed.apiKeys,
       panelSearch: parsed.panelSearch ?? {},
       panelExtractCrawl: parsed.panelExtractCrawl ?? {},
     };
-  } catch {
+    try {
+      configCache = { mtimeMs: statSync(CONFIG_FILE_PATH).mtimeMs, config };
+    } catch {
+      configCache = null;
+    }
+    return config;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException)?.code;
+    if (code === "ENOENT") {
+      // 文件不存在：首次部署，静默返回默认配置即可
+      return { ...DEFAULT_CONFIG };
+    }
+    console.error(
+      `[严重] 配置文件 ${CONFIG_FILE_PATH} 读取失败（${error instanceof Error ? error.message : String(error)}），` +
+        "已回退到默认配置。若使用了默认密码 admin123 请立即修改，并检查配置文件权限与内容。",
+    );
     return { ...DEFAULT_CONFIG };
   }
 }
@@ -98,6 +129,8 @@ export function saveConfig(config: AppConfig): void {
     );
     writeFileSync(CONFIG_FILE_PATH, content, { encoding: "utf8", mode: 0o600 });
   }
+  // 写入后使缓存失效，保证下次 loadConfig 读到最新值（L6）
+  configCache = null;
 }
 
 /**

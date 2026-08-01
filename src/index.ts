@@ -27,6 +27,15 @@ if (!Number.isInteger(RAW_PORT) || RAW_PORT <= 0 || RAW_PORT > 65535) {
 }
 const PORT = RAW_PORT;
 
+// MCP 通道共享鉴权 token（H1）：云端对外暴露时设置，保护 Tavily 额度；
+// 未设置则不启用 MCP 鉴权（默认兼容）
+const MCP_API_KEY = process.env.MCP_API_KEY ?? "";
+
+/** 会话 ID 脱敏（L2）：日志仅保留前 8 位，避免会话标识被日志聚合滥用 */
+function maskSessionId(sessionId: string): string {
+  return sessionId.length > 8 ? `${sessionId.slice(0, 8)}…` : sessionId;
+}
+
 // 会话管理常量
 const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 会话空闲 30 分钟回收
 const SESSION_SCAN_INTERVAL_MS = 5 * 60 * 1000; // 每 5 分钟扫描一次过期会话
@@ -602,10 +611,10 @@ function sweepExpiredSessions(): void {
   const now = Date.now();
   for (const [sessionId, entry] of sessions) {
     if (now - entry.lastActiveAt > SESSION_IDLE_TIMEOUT_MS) {
-      console.log(`会话 ${sessionId} 空闲超时，已回收`);
+      console.log(`会话 ${maskSessionId(sessionId)} 空闲超时，已回收`);
       sessions.delete(sessionId);
       entry.transport.close().catch((error) => {
-        console.error(`关闭会话 ${sessionId} 失败：`, error);
+        console.error(`关闭会话 ${maskSessionId(sessionId)} 失败：`, error);
       });
     }
   }
@@ -800,6 +809,17 @@ async function handleRequest(
     return;
   }
 
+  // MCP 通道鉴权（H1）：配置 MCP_API_KEY 后，MCP 请求必须携带 Authorization: Bearer <key>
+  // 未配置时不鉴权（保持默认部署兼容）；用于云端对外暴露时保护 Tavily 额度
+  if (MCP_API_KEY) {
+    const header = req.headers.authorization ?? "";
+    if (!header.startsWith("Bearer ") || header.slice(7) !== MCP_API_KEY) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "MCP 需要有效的 Authorization token" }));
+      return;
+    }
+  }
+
   switch (req.method) {
     case "POST":
       await handlePost(req, res);
@@ -847,7 +867,7 @@ async function shutdown(): Promise<void> {
     try {
       await sessions.get(sessionId)!.transport.close();
     } catch (error) {
-      console.error(`关闭会话 ${sessionId} 失败：`, error);
+      console.error(`关闭会话 ${maskSessionId(sessionId)} 失败：`, error);
     }
   }
   process.exit(0);

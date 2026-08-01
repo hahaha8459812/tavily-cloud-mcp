@@ -18,9 +18,8 @@
 ```bash
 git clone https://github.com/hahaha8459812/tavily-cloud-mcp.git
 cd tavily-cloud-mcp
-cp .env.example .env          # 复制环境变量范例
-vim .env                      # 编辑：把 TAVILY_API_KEYS 换成你的真实 key
-cp config.example.json config.json   # 准备面板持久化文件（占位符，可先留着，用面板管理密钥）
+cp config.example.json config.json   # 准备面板持久化文件
+vim config.json                      # 把 apiKeys 里的 tvly-your-real-api-key 换成你的真实 key（可选，也可启动后在面板添加）
 docker compose up -d
 ```
 
@@ -30,15 +29,30 @@ docker compose up -d
 - **MCP 端点**：http://localhost:8080/mcp
 - **健康检查**：http://localhost:8080/health
 
-> 说明：`config.json` 是面板的持久化文件（密钥、参数、账号密码），
-> 被 docker-compose 挂载为卷。仓库提供 `config.example.json` 作为可复制范例；
-> 推荐启动后直接在面板"添加密钥"里管理，避免手动编辑。
+> 说明：
+> - `config.json` 是唯一的持久化配置文件（密钥、参数、账号密码），被 docker-compose 挂载为卷。
+>   仓库提供 `config.example.json` 作为可复制范例；推荐启动后直接在面板"添加密钥"里管理。
+> - 本项目不依赖 `.env` 文件，所有配置统一从 `config.json` 读取。
+>   本地开发时仍可用 `npm start` + 环境变量（见下方"环境变量（可选）"）。
 
-## 环境变量（.env）是做什么的
+### 生产部署建议（安全）
 
-`.env` 是 Docker Compose 读取的**环境变量文件**，用于在**首次启动前**注入初始配置。它的值通过 `docker-compose.yml` 的 `environment` 传入容器，并覆盖默认值。
+服务默认使用**明文 HTTP**。若部署到公网，建议：
 
-主要用途：
+1. **前置 TLS 反向代理**（推荐 Caddy/Nginx）终止 HTTPS，再转发到本机 8080；
+2. 设置 `MCP_API_KEY` 环境变量开启 MCP 通道鉴权（否则任何能访问 8080 的人都能调用搜索消耗你的 Tavily 额度）：
+   ```yaml
+   # docker-compose.yml 追加
+   environment:
+     - MCP_API_KEY=your-shared-mcp-token
+   ```
+   开启后 MCP 客户端连接时需携带 `Authorization: Bearer <token>`；
+3. 面板账号密码请勿使用默认值，首次登录后立即修改；
+4. 数据库（config.json）含敏感凭据，确保宿主机文件权限仅本人可读。
+
+## 环境变量（可选，本地开发用）
+
+Docker 部署**不需要**环境变量文件，一切配置从 `config.json` 读取。以下环境变量仅在**本地直接运行**（`npm start`）时作为初始配置兜底使用：
 
 | 变量 | 作用 |
 |---|---|
@@ -47,7 +61,7 @@ docker compose up -d
 | `TAVILY_API_KEYS` | 多 key 逗号分隔，启动时进入轮询池 |
 | `TAVILY_INCLUDE_ANSWER` 等 | 面板管控参数的环境变量兜底（面板配置优先） |
 
-**重要：`.env` 只负责"初始注入"**。启动后你在面板里做的所有修改（增删密钥、配置 Token、改参数、改密码）都持久化到挂载的 `config.json`，与 `.env` 无关。`.env` 与 `config.json` 是**两套独立配置源**，`.env` 优先级低于 `config.json`（`loadConfig` 先读 config.json 再回退环境变量）。
+**重要**：环境变量只作为"初始兜底"，且优先级**低于** `config.json`。启动后面板里的所有修改（增删密钥、配置 Token、改参数、改密码）都持久化到挂载的 `config.json`。
 
 ### 方式二：本地运行
 

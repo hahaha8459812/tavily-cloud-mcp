@@ -24,6 +24,8 @@ import {
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 登录 token 有效期 24 小时
 const sessions = new Map<string, { expiresAt: number }>();
+/** 管理 API 请求体大小上限 */
+const MAX_BODY_BYTES = 1_048_576;
 
 // 登录限流：同一 IP 在 15 分钟窗口内连续失败 5 次后，锁定至窗口结束（H3）
 const LOGIN_MAX_FAILURES = 5;
@@ -94,7 +96,7 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
   res.end(JSON.stringify(body));
 }
 
-function readJsonBody(req: http.IncomingMessage, maxBytes = 1_048_576): Promise<unknown> {
+function readJsonBody(req: http.IncomingMessage, maxBytes = MAX_BODY_BYTES): Promise<unknown> {
   return new Promise((resolve, reject) => {
     let body = "";
     let size = 0;

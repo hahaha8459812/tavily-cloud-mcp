@@ -41,6 +41,12 @@ interface PooledKey {
 
 const DISABLE_DURATION_MS = 60_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
+/** 密钥指纹长度（sha256 前 N 位 hex），用于面板安全引用 */
+const KEY_ID_LENGTH = 16;
+/** 脱敏展示：保留前缀长度 */
+const KEY_MASK_PREFIX_LENGTH = 8;
+/** 脱敏展示：保留后缀长度 */
+const KEY_MASK_SUFFIX_LENGTH = 4;
 
 /**
  * 多密钥轮询池。
@@ -358,13 +364,13 @@ export class TavilyKeyPool {
 
   /** 计算密钥指纹（sha256 前 16 位），用于面板安全引用 */
   private keyId(apiKey: string): string {
-    return createHash("sha256").update(apiKey).digest("hex").slice(0, 16);
+    return createHash("sha256").update(apiKey).digest("hex").slice(0, KEY_ID_LENGTH);
   }
 
-  /** 脱敏展示：保留前 8 位，其余用星号隐藏 */
+  /** 脱敏展示：保留前后缀，其余用星号隐藏 */
   private maskKey(apiKey: string): string {
-    const prefix = apiKey.slice(0, 8);
-    const suffix = apiKey.slice(-4);
+    const prefix = apiKey.slice(0, KEY_MASK_PREFIX_LENGTH);
+    const suffix = apiKey.slice(-KEY_MASK_SUFFIX_LENGTH);
     return `${prefix}****${suffix}`;
   }
 }

@@ -57,6 +57,65 @@ function toCamelCase(value: string): string {
   return value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
 }
 
+/** 校验 include_answer 合法取值（L5：防止 config.json 非法值透传给 Tavily API） */
+function isValidIncludeAnswer(value: unknown): boolean {
+  return value === true || value === false || value === "basic" || value === "advanced";
+}
+
+/** 校验 include_raw_content 合法取值 */
+function isValidIncludeRawContent(value: unknown): boolean {
+  return value === true || value === false || value === "markdown" || value === "text";
+}
+
+/** 校验正整数区间 */
+function isValidRangeNumber(value: unknown, min: number, max: number): boolean {
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
+/** 校验字符串数组（域名列表） */
+function isValidStringArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+/** 校验 panelSearch 各字段合法取值（L5） */
+function isValidPanelSearchValue(key: string, value: unknown): boolean {
+  switch (key) {
+    case "include_answer":
+      return isValidIncludeAnswer(value);
+    case "include_raw_content":
+      return isValidIncludeRawContent(value);
+    case "include_images":
+    case "include_image_descriptions":
+    case "include_favicon":
+    case "auto_parameters":
+      return typeof value === "boolean";
+    case "chunks_per_source":
+      return isValidRangeNumber(value, 1, 5);
+    case "include_domains":
+    case "exclude_domains":
+      return isValidStringArray(value);
+    case "country":
+      return typeof value === "string" && value.length > 0;
+    default:
+      return false;
+  }
+}
+
+/** 校验 panelExtractCrawl 各字段合法取值（L5） */
+function isValidPanelExtractValue(key: string, value: unknown): boolean {
+  switch (key) {
+    case "include_images":
+    case "include_favicon":
+      return typeof value === "boolean";
+    case "extract_depth":
+      return value === "basic" || value === "advanced";
+    case "format":
+      return value === "markdown" || value === "text";
+    default:
+      return false;
+  }
+}
+
 /**
  * 读取 Tavily API Key 条目列表（含可选 accountToken）。
  * 优先级：config.json 的 apiKeys（面板管理，兼容旧 string[] 格式）> 环境变量 TAVILY_API_KEYS > 单个 TAVILY_API_KEY。
@@ -89,6 +148,11 @@ export function loadPanelSearchConfig(): PanelSearchConfig {
   if (saved && typeof saved === "object" && Object.keys(saved).length > 0) {
     for (const [key, value] of Object.entries(saved)) {
       if (value === undefined || value === null) {
+        continue;
+      }
+      // 字段级校验（L5）：非法值跳过并告警，不污染 Tavily 请求
+      if (!isValidPanelSearchValue(key, value)) {
+        console.warn(`[配置] panelSearch.${key} 的值非法（${JSON.stringify(value)}），已忽略`);
         continue;
       }
       // 面板以 snake_case 存储，转换为内部 camelCase 字段
@@ -183,6 +247,11 @@ export function loadPanelExtractCrawlConfig(): PanelExtractCrawlConfig {
   if (saved && typeof saved === "object" && Object.keys(saved).length > 0) {
     for (const [key, value] of Object.entries(saved)) {
       if (value === undefined || value === null) {
+        continue;
+      }
+      // 字段级校验（L5）
+      if (!isValidPanelExtractValue(key, value)) {
+        console.warn(`[配置] panelExtractCrawl.${key} 的值非法（${JSON.stringify(value)}），已忽略`);
         continue;
       }
       const camelKey = toCamelCase(key);

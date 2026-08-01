@@ -30,7 +30,17 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=web-builder /web/dist ./web/dist
 
+# 范例配置文件 + 入口脚本（首次部署无 config.json 时自动初始化）
+COPY config.example.json ./config.example.json
+COPY docker-entrypoint.sh ./
+
+# 非 root 运行（L7）：降低容器逃逸影响面；su-exec 用于降权执行
+RUN apk add --no-cache su-exec \
+    && addgroup -S app && adduser -S app -G app \
+    && chown -R app:app /app \
+    && chmod +x /app/docker-entrypoint.sh
+
 # config.json 通过外部卷挂载，保持持久化
 EXPOSE 8080
 
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
