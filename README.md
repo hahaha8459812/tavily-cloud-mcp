@@ -113,16 +113,16 @@ npm start           # 启动，默认端口 8080
 - **API Key**：`tvly-` 开头的 Tavily 密钥，多个 key 自动轮询
 - **Token（可选）**：Tavily 官网的 `appSession` Cookie（浏览器登录 app.tavily.com 后从 Cookie 中复制）。配置后可在面板查看**实时额度**（邮箱、已用/总配额、剩余），token 每 6 小时自动续期。未配置 token 的 key 正常参与调用但不展示额度。
 
-#### 获取 appSession Token（F12 控制台脚本）
+#### 获取 appSession Token（Cookie-Editor 插件）
 
-用浏览器开发者工具一键提取，无需安装任何东西：
+`appSession` 是 HttpOnly Cookie（JS 无法读取），推荐用浏览器插件 [Cookie-Editor](https://cookie-editor.cgagnier.ca/)（Chrome/Edge 商店搜索即可安装）：
 
 1. 打开 [https://app.tavily.com](https://app.tavily.com) 并登录；
-2. 按 `F12` 打开开发者工具 → 切到 **Console**（控制台）标签；
-3. 将仓库中 `scripts/get-appsession-cookie.console.js` 里"从这里复制开始"到"复制到这里结束"之间的内容整体粘贴进控制台，回车执行；
-4. 脚本会自动把 `appSession` 复制到剪贴板并打印出来，粘贴到面板「添加密钥」或「配置 Token」即可。
+2. 点击浏览器工具栏的 Cookie-Editor 插件图标；
+3. 在列表中过滤出 **name 为 `appSession`** 的那条（domain 是 `app.tavily.com`）；
+4. 复制它的 **Value**，粘贴到面板「添加密钥」或「配置 Token」即可显示实时额度。
 
-> 提示：若提示"未找到 appSession"，确认已登录 app.tavily.com、当前页面就是该站点，并刷新一次再执行。Cookie 是敏感登录凭据，请勿外泄。
+> 提示：Cookie 是敏感登录凭据，请勿外泄。token 会在约 6 小时后过期，服务器会每 6 小时自动续期；若续期失败，重新用本方法获取一次即可。
 
 ### 面板管控参数
 
