@@ -1,5 +1,8 @@
 const TAVILY_API_BASE_URL = "https://api.tavily.com";
 
+/** Tavily API 请求客户端超时（毫秒），防止上游挂起导致调用永久阻塞 */
+const TAVILY_REQUEST_TIMEOUT_MS = 30_000;
+
 export type SearchDepth = "advanced" | "basic" | "fast" | "ultra-fast";
 export type SearchTopic = "general" | "news" | "finance";
 export type TimeRange = "day" | "week" | "month" | "year" | "d" | "w" | "m" | "y";
@@ -156,34 +159,6 @@ export interface TavilyResearchStatusResponse {
   response_time?: number;
 }
 
-export interface TavilyUsageBreakdown {
-  usage: number;
-  limit: number | null;
-  search_usage: number;
-  extract_usage: number;
-  crawl_usage: number;
-  map_usage: number;
-  research_usage: number;
-}
-
-export interface TavilyAccountUsage {
-  current_plan: string;
-  plan_usage: number;
-  plan_limit: number;
-  paygo_usage: number;
-  paygo_limit: number;
-  search_usage: number;
-  extract_usage: number;
-  crawl_usage: number;
-  map_usage: number;
-  research_usage: number;
-}
-
-export interface TavilyUsageResponse {
-  key: TavilyUsageBreakdown;
-  account: TavilyAccountUsage;
-}
-
 /** 官网 /api/account 返回的实时账户额度（带 appSession token 查询） */
 export interface TavilyAccountInfo {
   email: string;
@@ -227,6 +202,7 @@ export class TavilyClient {
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: AbortSignal.timeout(TAVILY_REQUEST_TIMEOUT_MS),
     });
 
     const responseBody = await response.text();
@@ -352,6 +328,7 @@ export class TavilyClient {
         headers: {
           Authorization: `Bearer ${this.apiKey}`,
         },
+        signal: AbortSignal.timeout(TAVILY_REQUEST_TIMEOUT_MS),
       },
     );
 
@@ -367,13 +344,6 @@ export class TavilyClient {
 
     return JSON.parse(responseBody) as TavilyResearchStatusResponse;
   }
-
-  /** 查询当前 API Key 及所属账户的额度使用情况 */
-  async getUsage(): Promise<TavilyUsageResponse> {
-    return (await this.requestJson("/usage", {
-      method: "GET",
-    })) as TavilyUsageResponse;
-  }
 }
 
 /** 用官网 appSession token 查询实时账户额度（绕过公共 /usage 接口的计费周期滞后问题） */
@@ -385,6 +355,7 @@ export async function getAccountUsageByToken(
     headers: {
       Cookie: `appSession=${appSessionToken}`,
     },
+    signal: AbortSignal.timeout(TAVILY_REQUEST_TIMEOUT_MS),
   });
 
   if (!response.ok) {

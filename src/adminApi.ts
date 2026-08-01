@@ -1,7 +1,13 @@
 import type http from "node:http";
-import { randomUUID } from "node:crypto";
 import type { TavilyKeyPool } from "./keyPool.js";
-import { loadConfig, saveConfig, hashPassword, type AppConfig } from "./configStore.js";
+import {
+  loadConfig,
+  saveConfig,
+  hashPassword,
+  verifyPassword,
+  isPasswordOutdated,
+  type AppConfig,
+} from "./configStore.js";
 
 /**
  * 管理面板 API。
@@ -18,6 +24,55 @@ import { loadConfig, saveConfig, hashPassword, type AppConfig } from "./configSt
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 登录 token 有效期 24 小时
 const sessions = new Map<string, { expiresAt: number }>();
+
+// 登录限流：同一 IP 在 15 分钟窗口内连续失败 5 次后，锁定至窗口结束（H3）
+const LOGIN_MAX_FAILURES = 5;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
+/** 记录每个 IP 的失败时间戳（毫秒），用于滑动窗口计数 */
+const loginFailures = new Map<string, number[]>();
+/** 记录每个 IP 的锁定截止时间 */
+const loginLocks = new Map<string, number>();
+
+/** 获取客户端 IP（兼容直连与常见反代头，仅用于限流） */
+function getClientIp(req: http.IncomingMessage): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.length > 0) {
+    return forwarded.split(",")[0]!.trim();
+  }
+  return req.socket.remoteAddress ?? "unknown";
+}
+
+/** 检查 IP 是否处于登录锁定状态 */
+function isLoginLocked(ip: string): boolean {
+  const lockedUntil = loginLocks.get(ip);
+  if (lockedUntil === undefined) {
+    return false;
+  }
+  if (Date.now() >= lockedUntil) {
+    loginLocks.delete(ip);
+    return false;
+  }
+  return true;
+}
+
+/** 记录一次登录失败：滑动窗口统计，窗口内达阈值则锁定 */
+function recordLoginFailure(ip: string): void {
+  const now = Date.now();
+  const windowStart = now - LOGIN_LOCK_MS;
+  const failures = (loginFailures.get(ip) ?? []).filter((t) => t > windowStart);
+  failures.push(now);
+  loginFailures.set(ip, failures);
+  if (failures.length >= LOGIN_MAX_FAILURES) {
+    loginLocks.set(ip, now + LOGIN_LOCK_MS);
+    loginFailures.delete(ip);
+  }
+}
+
+/** 登录成功后清除该 IP 的失败与锁定记录 */
+function clearLoginFailures(ip: string): void {
+  loginFailures.delete(ip);
+  loginLocks.delete(ip);
+}
 
 /** 简单 Bearer token 鉴权中间件 */
 function isAuthorized(req: http.IncomingMessage): boolean {
@@ -46,6 +101,7 @@ function readJsonBody(req: http.IncomingMessage, maxBytes = 1_048_576): Promise<
     req.on("data", (chunk: Buffer) => {
       size += chunk.length;
       if (size > maxBytes) {
+        // 超限即拒绝，让客户端读到明确错误；慢速大包由 server.requestTimeout 兜底
         reject(new Error("请求体过大"));
         return;
       }
@@ -79,15 +135,27 @@ export async function handleAdminApi(
   // 登录接口不鉴权
   if (url.pathname === "/api/login" && req.method === "POST") {
     try {
+      const ip = getClientIp(req);
+      if (isLoginLocked(ip)) {
+        sendJson(res, 429, { error: "尝试次数过多，请 15 分钟后再试" });
+        return true;
+      }
       const body = (await readJsonBody(req)) as { username?: string; password?: string };
       const config = loadConfig();
       const { password } = config.admin;
       // 个人项目仅校验密码；username 可选（兼容旧客户端），即使传入也忽略
-      if (hashPassword(body.password ?? "") === hashPassword(password)) {
+      if (verifyPassword(body.password ?? "", password)) {
+        clearLoginFailures(ip);
+        // 旧明文/sha256 密码在此刻自动迁移为 scrypt 哈希（H6）
+        if (isPasswordOutdated(password)) {
+          config.admin.password = hashPassword(password);
+          saveConfig(config);
+        }
         const token = crypto.randomUUID();
         sessions.set(token, { expiresAt: Date.now() + SESSION_TTL_MS });
         sendJson(res, 200, { token });
       } else {
+        recordLoginFailure(ip);
         sendJson(res, 401, { error: "密码错误" });
       }
     } catch (error) {
@@ -223,7 +291,7 @@ export async function handleAdminApi(
           newPassword?: string;
         };
         const config = loadConfig();
-        if (hashPassword(body.oldPassword ?? "") !== hashPassword(config.admin.password)) {
+        if (!verifyPassword(body.oldPassword ?? "", config.admin.password)) {
           sendJson(res, 401, { error: "原密码错误" });
           return true;
         }
@@ -231,7 +299,7 @@ export async function handleAdminApi(
           sendJson(res, 400, { error: "新密码至少 6 位" });
           return true;
         }
-        config.admin.password = body.newPassword;
+        config.admin.password = hashPassword(body.newPassword);
         saveConfig(config);
         sendJson(res, 200, { ok: true });
         return true;

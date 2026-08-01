@@ -51,6 +51,8 @@ const MAX_CONSECUTIVE_FAILURES = 3;
 export class TavilyKeyPool {
   private keys: PooledKey[];
   private nextIndex = 0;
+  /** 进行中的全量额度刷新（M5 去重：并发调用合并为一次） */
+  private refreshInFlight: Promise<void> | null = null;
 
   constructor(apiKeyEntries: Array<ApiKeyEntry | string>) {
     this.keys = [];
@@ -85,16 +87,6 @@ export class TavilyKeyPool {
       accountToken: accountToken && accountToken.trim().length > 0 ? accountToken.trim() : null,
       lastAccountInfo: null,
     });
-    return true;
-  }
-
-  /** 从池中移除指定密钥，返回是否成功 */
-  removeKey(apiKey: string): boolean {
-    const index = this.keys.findIndex((key) => key.apiKey === apiKey);
-    if (index === -1) {
-      return false;
-    }
-    this.keys.splice(index, 1);
     return true;
   }
 
@@ -266,8 +258,19 @@ export class TavilyKeyPool {
    * 每次调用官网 /api/account 时会捕获 Set-Cookie 中的新 appSession 并回写内存，
    * 由调用方负责持久化到 config.json（实现自动续期）。
    * 无 token 的密钥跳过（额度数据保持未知）。
+   * 并发调用会合并为一次刷新（M5），避免重复请求官网接口。
    */
   async refreshUsage(): Promise<void> {
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+    this.refreshInFlight = this.doRefreshUsage().finally(() => {
+      this.refreshInFlight = null;
+    });
+    return this.refreshInFlight;
+  }
+
+  private async doRefreshUsage(): Promise<void> {
     await Promise.all(
       this.keys.map(async (key) => {
         if (!key.accountToken || !this.isUsable(key)) {

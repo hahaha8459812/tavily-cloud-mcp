@@ -573,8 +573,8 @@ async function readJsonBody(
     req.on("data", (chunk: Buffer) => {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
-        // 超限：记录已超限标记，丢弃后续数据避免内存膨胀，
-        // 但不立即 destroy 连接，保证能返回 400 响应
+        // 超限：记录标记，丢弃后续数据避免内存膨胀，正常返回 400 让客户端读到错误；
+        // 慢速大包由 server.requestTimeout 兜底释放连接（见服务器创建处）
         if (!exceeded) {
           exceeded = true;
           failWith400(`请求体超过 ${MAX_BODY_BYTES} 字节上限`);
@@ -740,14 +740,15 @@ function serveAdminPage(req: http.IncomingMessage, res: http.ServerResponse): vo
   if (url.pathname === "/admin" || url.pathname === "/admin/") {
     filePath = indexPath;
   } else {
-    // /admin/xxx 映射到 web/dist/xxx，做路径穿越防护
-    const relative = url.pathname.replace(/^\/admin\//, "");
-    if (relative.includes("..")) {
+    // /admin/xxx 映射到 web/dist/xxx，用 resolve + 前缀校验做标准路径穿越防护
+    const relative = url.pathname.replace(/^\/admin\//, "").replace(/\\/g, "/");
+    const resolved = path.resolve(ADMIN_DIST_DIR, relative);
+    if (!resolved.startsWith(ADMIN_DIST_DIR + path.sep)) {
       res.writeHead(403, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Forbidden" }));
       return;
     }
-    filePath = path.join(ADMIN_DIST_DIR, relative);
+    filePath = resolved;
   }
 
   if (!existsSync(filePath)) {
@@ -815,23 +816,29 @@ async function handleRequest(
   }
 }
 
-http
+const server = http
   .createServer(async (req, res) => {
     try {
       await handleRequest(req, res);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      // 内部细节只写服务端日志，对外返回通用错误文案（避免泄露内部实现）
       console.error("处理请求出错：", error);
       console.error("错误堆栈：", error instanceof Error ? error.stack : "");
       if (!res.headersSent) {
         res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: message }));
+        res.end(JSON.stringify({ error: "服务器内部错误" }));
       }
     }
-  })
-  .listen(PORT, () => {
-    console.log(`Tavily Cloud MCP server 已启动，监听端口 ${PORT}`);
   });
+
+// M4 兜底：慢速大包/挂起请求超过 60 秒未完成时由 Node 主动关闭连接，防轻量 DoS
+server.requestTimeout = 60_000;
+server.headersTimeout = 20_000;
+server.keepAliveTimeout = 5_000;
+
+server.listen(PORT, () => {
+  console.log(`Tavily Cloud MCP server 已启动，监听端口 ${PORT}`);
+});
 
 // 优雅关闭：关闭所有活动会话（兼容 SIGINT 和 SIGTERM，Docker/K8s 停机发 SIGTERM）
 async function shutdown(): Promise<void> {
