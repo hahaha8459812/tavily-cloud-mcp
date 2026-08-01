@@ -29,7 +29,7 @@ async function main() {
     {
       const raw = await client.callTool({
         name: "web_search",
-        arguments: { query: "Claude AI latest release", max_results: 3, search_depth: "basic" },
+        arguments: { query: "Claude AI latest release", max_results: 3 },
       });
       const text = raw.content.filter((i) => i.type === "text").map((i) => (i as { text: string }).text).join("\n");
       const result = JSON.parse(text);

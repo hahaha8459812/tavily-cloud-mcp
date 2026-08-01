@@ -166,11 +166,6 @@ export function loadTavilyApiKeyEntries(): ApiKeyEntry[] {
   return singleKey ? [{ key: singleKey }] : [];
 }
 
-/** 读取 Tavily API Key 明文列表（兼容旧调用方），仅取 key 字段 */
-export function loadTavilyApiKeys(): string[] {
-  return loadTavilyApiKeyEntries().map((entry) => entry.key);
-}
-
 /** 从配置文件（或环境变量兜底）读取面板管控的搜索参数 */
 export function loadPanelSearchConfig(): PanelSearchConfig {
   const config: PanelSearchConfig = {};

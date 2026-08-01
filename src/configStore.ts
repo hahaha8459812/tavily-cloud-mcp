@@ -99,7 +99,8 @@ export function loadConfig(): AppConfig {
       panelSearch: parsed.panelSearch ?? {},
       panelExtractCrawl: parsed.panelExtractCrawl ?? {},
     };
-    // 文件存在但缺少必需字段时自动补全写回（旧版 config 升级为新结构，避免新旧字段混搭）
+    // 文件存在但缺少必需字段时自动补全写回（旧版 config 升级为新结构，避免新旧字段混搭）；
+    // 写回失败（如挂载卷只读）仅告警，不阻断本次读取，也不误报为配置文件损坏
     const missingRequiredField =
       parsed.admin === undefined ||
       parsed.mcpAuth === undefined ||
@@ -107,7 +108,14 @@ export function loadConfig(): AppConfig {
       parsed.panelSearch === undefined ||
       parsed.panelExtractCrawl === undefined;
     if (missingRequiredField) {
-      saveConfig(config);
+      try {
+        saveConfig(config);
+      } catch (error) {
+        console.warn(
+          `[配置] config.json 缺少字段自动补全写回失败：${error instanceof Error ? error.message : String(error)}，` +
+            "本次仍在内存中使用默认值，下次读取将继续尝试补全",
+        );
+      }
     }
     try {
       configCache = { mtimeMs: statSync(CONFIG_FILE_PATH).mtimeMs, config };

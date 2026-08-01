@@ -52,18 +52,21 @@ assertAdminPasswordChanged();
 // MCP 通道共享鉴权 token（H1）：保护 Tavily 额度。
 // 优先级：config.json 的 mcpAuth（面板管理）> 环境变量 MCP_API_KEY（兼容旧部署）。
 // 每次请求实时读取，面板开关/改密钥无需重启即生效。
+// 配置错误（开启但 key 空）的告警只打一次，避免每次请求刷屏。
+let mcpAuthMisconfiguredWarned = false;
 function getMcpApiKey(): string {
   const envKey = process.env.MCP_API_KEY ?? "";
   try {
     const mcpAuth = loadConfig().mcpAuth;
     if (mcpAuth?.enabled) {
       const key = mcpAuth.apiKey ?? "";
-      if (!key) {
-        // 配置错误防御：开启鉴权但密钥为空时按未开启处理并告警，
+      if (!key && !mcpAuthMisconfiguredWarned) {
+        // 配置错误防御：开启鉴权但密钥为空时按未开启处理并告警（仅一次），
         // 避免面板显示已开启而实际未鉴权的情况被静默忽略
         console.warn(
           "[配置] mcpAuth.enabled 为 true 但 apiKey 为空，MCP 鉴权未生效。请通过面板设置至少 8 位的共享密钥。",
         );
+        mcpAuthMisconfiguredWarned = true;
       }
       return key;
     }
@@ -490,94 +493,94 @@ function createMcpServer(): McpServer {
   if (researchEnabled) {
     server.registerTool(
       "research_create",
-    {
-      description:
-        "对给定主题/问题做多来源综合深度研究，适合需要从多个来源收集信息才能回答的任务。耗时约 30-90 秒，创建后用 research_get_status 轮询结果；需要快速答案时优先用 web_search",
-      inputSchema: {
-        input: z.string().describe("要研究的主题或问题"),
-        model: z
-          .enum(["mini", "pro", "auto"])
-          .optional()
-          .describe("研究模型：mini 适合子主题少的窄任务，开销最低；pro 适合子主题多的宽任务，开销显著高于 mini；auto 自动选择最优模型"),
-        citation_format: z
-          .enum(["numbered", "mla", "apa", "chicago"])
-          .optional()
-          .describe("引用格式"),
-        output_length: z
-          .enum(["short", "standard", "long"])
-          .optional()
-          .describe("报告长度"),
-        include_domains: z
-          .array(z.string())
-          .max(20)
-          .optional()
-          .describe("优先使用的来源域名"),
-        exclude_domains: z
-          .array(z.string())
-          .max(20)
-          .optional()
-          .describe("排除的来源域名"),
+      {
+        description:
+          "对给定主题/问题做多来源综合深度研究，适合需要从多个来源收集信息才能回答的任务。耗时约 30-90 秒，创建后用 research_get_status 轮询结果；需要快速答案时优先用 web_search",
+        inputSchema: {
+          input: z.string().describe("要研究的主题或问题"),
+          model: z
+            .enum(["mini", "pro", "auto"])
+            .optional()
+            .describe("研究模型：mini 适合子主题少的窄任务，开销最低；pro 适合子主题多的宽任务，开销显著高于 mini；auto 自动选择最优模型"),
+          citation_format: z
+            .enum(["numbered", "mla", "apa", "chicago"])
+            .optional()
+            .describe("引用格式"),
+          output_length: z
+            .enum(["short", "standard", "long"])
+            .optional()
+            .describe("报告长度"),
+          include_domains: z
+            .array(z.string())
+            .max(20)
+            .optional()
+            .describe("优先使用的来源域名"),
+          exclude_domains: z
+            .array(z.string())
+            .max(20)
+            .optional()
+            .describe("排除的来源域名"),
+        },
       },
-    },
-    async (args) => {
-      if (!args.input) {
-        return errorResult("错误：input 参数不能为空");
-      }
+      async (args) => {
+        if (!args.input) {
+          return errorResult("错误：input 参数不能为空");
+        }
 
-      try {
-        const aiParams = {
-          input: args.input,
-          model: args.model,
-          citationFormat: args.citation_format,
-          outputLength: args.output_length,
-          includeDomains: args.include_domains,
-          excludeDomains: args.exclude_domains,
-        };
-        const result = await keyPool.createResearch(aiParams);
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return errorResult(`创建研究任务失败：${message}`);
-      }
-    },
-  );
-
-  server.registerTool(
-    "research_get_status",
-    {
-      description:
-        "查询 research_create 创建的研究任务状态与结果。status 为 pending/in_progress 时继续轮询，completed 时返回报告",
-      inputSchema: {
-        request_id: z.string().describe("research_create 返回的任务 ID"),
+        try {
+          const aiParams = {
+            input: args.input,
+            model: args.model,
+            citationFormat: args.citation_format,
+            outputLength: args.output_length,
+            includeDomains: args.include_domains,
+            excludeDomains: args.exclude_domains,
+          };
+          const result = await keyPool.createResearch(aiParams);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return errorResult(`创建研究任务失败：${message}`);
+        }
       },
-    },
-    async ({ request_id }) => {
-      if (!request_id) {
-        return errorResult("错误：request_id 参数不能为空");
-      }
+    );
 
-      try {
-        const result = await keyPool.getResearchStatus(request_id);
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(result, null, 2),
-            },
-          ],
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return errorResult(`查询研究任务失败：${message}`);
-      }
-    },
+    server.registerTool(
+      "research_get_status",
+      {
+        description:
+          "查询 research_create 创建的研究任务状态与结果。status 为 pending/in_progress 时继续轮询，completed 时返回报告",
+        inputSchema: {
+          request_id: z.string().describe("research_create 返回的任务 ID"),
+        },
+      },
+      async ({ request_id }) => {
+        if (!request_id) {
+          return errorResult("错误：request_id 参数不能为空");
+        }
+
+        try {
+          const result = await keyPool.getResearchStatus(request_id);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return errorResult(`查询研究任务失败：${message}`);
+        }
+      },
     );
   }
 
