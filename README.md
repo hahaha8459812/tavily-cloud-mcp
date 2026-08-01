@@ -51,6 +51,27 @@ docker compose up -d
 3. 面板密码请在 config.json 中设置为强密码，不要在浏览器记住非本机使用的密码；
 4. 数据库（config.json）含敏感凭据，确保宿主机文件权限仅本人可读。
 
+## 更新镜像与容器
+
+当仓库发布新版本后，按以下步骤升级（config.json 是卷挂载的，升级**不会丢失**密钥、Token、面板配置）：
+
+```bash
+# 1. 拉取最新代码
+git pull
+
+# 2. 重新构建镜像（自动编译后端 TypeScript + 前端 React）
+docker compose build
+
+# 3. 用新镜像重建容器并启动
+docker compose up -d
+```
+
+> 说明：
+> - `docker compose up -d` 检测到镜像变化时会自动用新镜像重建容器；若希望强制重建，加 `--force-recreate`。
+> - 想完全不用构建缓存：`docker compose build --no-cache`。
+> - 构建/启动排障：`docker compose logs -f tavily-cloud-mcp`；查看运行状态：`docker ps --filter "name=tavily-cloud-mcp"`。
+> - 升级完成后打开管理面板确认登录正常、密钥仍在；首次升级旧版本时，`config.json` 缺失的新字段（如 `mcpAuth`、`researchEnabled`、`sessionSecret`）会在启动时自动补全。
+
 ## 环境变量（可选，本地开发用）
 
 Docker 部署**不需要**环境变量文件，一切配置从 `config.json` 读取。以下环境变量仅在**本地直接运行**（`npm start`）时作为初始配置兜底使用：
