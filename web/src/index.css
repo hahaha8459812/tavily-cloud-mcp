@@ -430,15 +430,157 @@ body {
   -webkit-backdrop-filter: blur(12px);
 }
 
-/* 空状态引导 */
-.ant-empty-description {
-  color: #8a8aa3 !important;
+/* ============ 移动端适配 ============ */
+
+/* 移动端顶部固定导航栏 */
+.panel-mobile-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 0 16px;
+  background: rgba(13, 13, 22, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.12);
+}
+
+.panel-mobile-menu-btn {
+  color: #c7d2fe;
+  font-size: 18px;
+  padding: 8px;
+}
+
+.panel-brand-mobile {
+  height: 52px;
+  justify-content: flex-start;
+  font-size: 16px;
+}
+
+.panel-brand-drawer {
+  height: 64px;
+  margin-bottom: 8px;
+}
+
+.panel-mobile-drawer .ant-drawer-content {
+  background: rgba(13, 13, 22, 0.97);
+}
+
+.panel-mobile-drawer .ant-drawer-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-mobile-drawer-footer {
+  margin-top: auto;
+  padding: 12px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* 移动端内容区 */
+@media (max-width: 767px) {
+  .panel-content {
+    padding: 16px 14px;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+  }
+
+  .page-title {
+    font-size: 19px;
+  }
+
+  .page-header .ant-btn {
+    padding-inline: 12px;
+  }
+
+  /* 统计卡片：紧凑间距与内边距 */
+  .stat-card .ant-card-body {
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .stat-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
+
+  /* 密钥卡片头部：按钮区自适应，避免溢出 */
+  .key-card-header {
+    gap: 8px;
+  }
+
+  .key-card-header .ant-space {
+    flex-shrink: 0;
+  }
+
+  .key-card-keyname {
+    font-size: 12px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 停用卡片 tooltip 触控友好 */
+  .key-card-header .ant-space .ant-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+  }
+
+  /* 进度条卡片图标在窄屏下隐藏，让文字区占满 */
+  .plan-usage-head .stat-icon {
+    display: none;
+  }
+
+  .plan-usage-head {
+    gap: 0;
+  }
+}
+
+/* 手机端（更窄）进一步收紧 */
+@media (max-width: 480px) {
+  .panel-content {
+    padding: 12px 10px;
+  }
+
+  .stat-card .ant-card-body {
+    padding: 14px;
+  }
+}
+
+/* ============ 登录页移动端 ============ */
+@media (max-width: 480px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 32px 24px;
+  }
 }
 
 /* 表单标签 */
 .ant-form-item-label > label {
   color: #9d9db3 !important;
   font-weight: 500;
+}
+
+/* 空状态引导 */
+.ant-empty-description {
+  color: #8a8aa3 !important;
 }
 
 /* 滚动条美化 */
