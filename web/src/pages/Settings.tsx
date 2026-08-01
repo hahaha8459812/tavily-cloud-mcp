@@ -20,6 +20,9 @@ interface SettingsFormValues {
   extract_include_favicon: boolean
   extract_depth: string
   extract_format: string
+  // MCP 通道鉴权（H1）
+  mcp_auth_enabled: boolean
+  mcp_auth_api_key: string
 }
 
 interface PasswordFormValues {
@@ -42,6 +45,7 @@ export default function Settings() {
       const config = await api.getConfig()
       const search = config.panelSearch as Record<string, unknown>
       const extract = config.panelExtractCrawl as Record<string, unknown>
+      const mcpAuth = config.mcpAuth ?? { enabled: false, apiKey: '' }
       form.setFieldsValue({
         include_answer: (search.include_answer as string) ?? 'false',
         include_raw_content: (search.include_raw_content as string) ?? 'false',
@@ -57,6 +61,8 @@ export default function Settings() {
         extract_include_favicon: (extract.include_favicon as boolean) ?? false,
         extract_depth: (extract.extract_depth as string) ?? 'basic',
         extract_format: (extract.format as string) ?? 'markdown',
+        mcp_auth_enabled: mcpAuth.enabled ?? false,
+        mcp_auth_api_key: mcpAuth.apiKey ?? '',
       })
     } catch (error) {
       message.error(error instanceof Error ? error.message : '加载配置失败')
@@ -95,6 +101,10 @@ export default function Settings() {
           include_favicon: values.extract_include_favicon,
           extract_depth: values.extract_depth,
           format: values.extract_format,
+        },
+        {
+          enabled: values.mcp_auth_enabled,
+          apiKey: values.mcp_auth_api_key.trim(),
         },
       )
       message.success('配置已保存，立即生效')
@@ -191,6 +201,34 @@ export default function Settings() {
         </Form.Item>
         <Form.Item name="extract_include_favicon" label="包含站点图标" valuePropName="checked">
           <Switch />
+        </Form.Item>
+
+        <Divider>MCP 通道鉴权</Divider>
+        <Form.Item
+          name="mcp_auth_enabled"
+          label="启用 MCP 鉴权"
+          valuePropName="checked"
+          extra="开启后，MCP 客户端连接必须携带 Authorization: Bearer <密钥>，防止云端公开访问消耗 Tavily 额度"
+        >
+          <Switch />
+        </Form.Item>
+        <Form.Item
+          name="mcp_auth_api_key"
+          label="MCP 共享密钥"
+          rules={[
+            ({ getFieldValue }) => ({
+              validator: (_, value) => {
+                if (!getFieldValue('mcp_auth_enabled')) return Promise.resolve()
+                const key = (value ?? '').trim()
+                return key.length >= 8
+                  ? Promise.resolve()
+                  : Promise.reject(new Error('开启 MCP 鉴权时，共享密钥至少 8 位'))
+              },
+            }),
+          ]}
+          extra="请设置至少 8 位的随机字符串，并告知你的 MCP 客户端"
+        >
+          <Input.Password placeholder="输入 MCP 共享密钥" autoComplete="new-password" />
         </Form.Item>
 
         <Space>

@@ -30,8 +30,7 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=web-builder /web/dist ./web/dist
 
-# 范例配置文件 + 入口脚本（首次部署无 config.json 时自动初始化）
-COPY config.example.json ./config.example.json
+# 入口脚本（config.json 由用户在宿主机复制并修改密码后挂载进来，见 docker-entrypoint.sh）
 COPY docker-entrypoint.sh ./
 
 # 非 root 运行（L7）：降低容器逃逸影响面；su-exec 用于降权执行

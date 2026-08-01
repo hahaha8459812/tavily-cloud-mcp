@@ -18,14 +18,17 @@
 ```bash
 git clone https://github.com/hahaha8459812/tavily-cloud-mcp.git
 cd tavily-cloud-mcp
-cp config.example.json config.json   # 准备面板持久化文件
-vim config.json                      # 把 apiKeys 里的 tvly-your-real-api-key 换成你的真实 key（可选，也可启动后在面板添加）
+cp config.example.json config.json   # 必须手动复制（容器不会自动生成）
+vim config.json                      # 必改 1 项：把 admin.password 的 CHANGE_ME 改成你自己的强密码
+                                     # 可改：把 apiKeys 里的 tvly-your-real-api-key 换成真实 key（也可启动后在面板添加）
 docker compose up -d
 ```
 
+> **注意**：`config.example.json` 中面板密码为占位符 `CHANGE_ME`。若未修改，服务会**拒绝启动**并提示你补上密码——这是有意设计，避免默认凭据对外服务。容器也不会自动生成 config.json，必须先手动复制。
+
 服务启动后：
 
-- **管理面板**：http://localhost:8080/admin （默认密码 `admin123`，首次登录后请尽快修改）
+- **管理面板**：http://localhost:8080/admin （用你在 config.json 里设置的密码登录）
 - **MCP 端点**：http://localhost:8080/mcp
 - **健康检查**：http://localhost:8080/health
 
@@ -34,20 +37,18 @@ docker compose up -d
 >   仓库提供 `config.example.json` 作为可复制范例；推荐启动后直接在面板"添加密钥"里管理。
 > - 本项目不依赖 `.env` 文件，所有配置统一从 `config.json` 读取。
 >   本地开发时仍可用 `npm start` + 环境变量（见下方"环境变量（可选）"）。
+> - 容器以非 root 用户运行；若宿主机 config.json 权限过严导致保存失败，容器入口会自动尝试修正属主。
 
 ### 生产部署建议（安全）
 
 服务默认使用**明文 HTTP**。若部署到公网，建议：
 
 1. **前置 TLS 反向代理**（推荐 Caddy/Nginx）终止 HTTPS，再转发到本机 8080；
-2. 设置 `MCP_API_KEY` 环境变量开启 MCP 通道鉴权（否则任何能访问 8080 的人都能调用搜索消耗你的 Tavily 额度）：
-   ```yaml
-   # docker-compose.yml 追加
-   environment:
-     - MCP_API_KEY=your-shared-mcp-token
-   ```
-   开启后 MCP 客户端连接时需携带 `Authorization: Bearer <token>`；
-3. 面板账号密码请勿使用默认值，首次登录后立即修改；
+2. **开启 MCP 通道鉴权**（否则任何能访问 8080 的人都能调用搜索消耗你的 Tavily 额度）：
+   - 面板「设置 → MCP 通道鉴权」打开开关并设置共享密钥，保存后**立即生效，无需重启**；
+   - 开启后 MCP 客户端连接时需携带 `Authorization: Bearer <密钥>`；
+   - 兼容旧方式：也可用环境变量 `MCP_API_KEY` 设置（config.json 未开启时兜底）；
+3. 面板密码请在 config.json 中设置为强密码，不要在浏览器记住非本机使用的密码；
 4. 数据库（config.json）含敏感凭据，确保宿主机文件权限仅本人可读。
 
 ## 环境变量（可选，本地开发用）
@@ -77,11 +78,14 @@ npm start           # 启动，默认端口 8080
 
 ### 环境变量（`.env`）
 
+以下环境变量仅作为本地直接运行（`npm start`）时的初始兜底，优先级**低于** `config.json`（面板里的修改始终持久化到 config.json）：
+
 | 变量 | 说明 |
 |---|---|
-| `TAVILY_API_KEYS` | 逗号分隔的 Tavily API Key 列表（优先于 config.json） |
+| `TAVILY_API_KEYS` | 逗号分隔的 Tavily API Key 列表（仅 config.json 无 apiKeys 时兜底） |
 | `PORT` | 服务端口，默认 8080 |
 | `CONFIG_FILE` | config.json 路径，默认项目根目录 |
+| `MCP_API_KEY` | MCP 鉴权共享密钥（仅 config.json 的 mcpAuth.enabled 为 false 时兜底） |
 
 ### 密钥与 Token
 

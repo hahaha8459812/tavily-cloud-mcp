@@ -16,6 +16,10 @@ import {
   applyPanelCrawlConfig,
   loadTavilyApiKeyEntries,
 } from "./config.js";
+import {
+  loadConfig,
+  isPlaceholderPassword,
+} from "./configStore.js";
 import { handleAdminApi, persistKeys } from "./adminApi.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,9 +31,39 @@ if (!Number.isInteger(RAW_PORT) || RAW_PORT <= 0 || RAW_PORT > 65535) {
 }
 const PORT = RAW_PORT;
 
-// MCP 通道共享鉴权 token（H1）：云端对外暴露时设置，保护 Tavily 额度；
-// 未设置则不启用 MCP 鉴权（默认兼容）
-const MCP_API_KEY = process.env.MCP_API_KEY ?? "";
+// 启动守卫：若 config.json 使用示例占位密码，拒绝启动并给出明确指引。
+// 强制用户先复制配置文件并修改密码，避免默认凭据对外服务（H2 强化）
+function assertAdminPasswordChanged(): void {
+  const config = loadConfig();
+  const storedPassword = config.admin?.password;
+  if (!storedPassword || isPlaceholderPassword(storedPassword)) {
+    console.error(
+      "[严重] 面板密码仍为示例占位值 CHANGE_ME，服务拒绝启动。\n" +
+        "请执行以下步骤：\n" +
+        "  1) cp config.example.json config.json\n" +
+        "  2) 编辑 config.json，将 admin.password 的 CHANGE_ME 改为你自己的强密码\n" +
+        "  3) 重新启动服务",
+    );
+    process.exit(1);
+  }
+}
+assertAdminPasswordChanged();
+
+// MCP 通道共享鉴权 token（H1）：保护 Tavily 额度。
+// 优先级：config.json 的 mcpAuth（面板管理）> 环境变量 MCP_API_KEY（兼容旧部署）。
+// 每次请求实时读取，面板开关/改密钥无需重启即生效。
+function getMcpApiKey(): string {
+  const envKey = process.env.MCP_API_KEY ?? "";
+  try {
+    const mcpAuth = loadConfig().mcpAuth;
+    if (mcpAuth?.enabled) {
+      return mcpAuth.apiKey ?? "";
+    }
+  } catch {
+    // 配置读取异常时回退环境变量，不阻断服务
+  }
+  return envKey;
+}
 
 /** 会话 ID 脱敏（L2）：日志仅保留前 8 位，避免会话标识被日志聚合滥用 */
 function maskSessionId(sessionId: string): string {
@@ -809,11 +843,12 @@ async function handleRequest(
     return;
   }
 
-  // MCP 通道鉴权（H1）：配置 MCP_API_KEY 后，MCP 请求必须携带 Authorization: Bearer <key>
-  // 未配置时不鉴权（保持默认部署兼容）；用于云端对外暴露时保护 Tavily 额度
-  if (MCP_API_KEY) {
+  // MCP 通道鉴权（H1）：开启后 MCP 请求必须携带 Authorization: Bearer <key>
+  // 关闭时不鉴权（默认部署兼容）；用于云端对外暴露时保护 Tavily 额度
+  const mcpApiKey = getMcpApiKey();
+  if (mcpApiKey) {
     const header = req.headers.authorization ?? "";
-    if (!header.startsWith("Bearer ") || header.slice(7) !== MCP_API_KEY) {
+    if (!header.startsWith("Bearer ") || header.slice(7) !== mcpApiKey) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "MCP 需要有效的 Authorization token" }));
       return;

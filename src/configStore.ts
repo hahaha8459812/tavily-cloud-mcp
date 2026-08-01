@@ -33,6 +33,11 @@ export interface AppConfig {
   admin: AdminCredentials;
   /** 池内密钥列表（面板管理），可能为旧格式 string[]，读取时统一兼容 */
   apiKeys?: ApiKeyEntry[] | string[];
+  /** MCP 通道鉴权配置（面板管理）；enabled 为 false 时等效未配置 */
+  mcpAuth: {
+    enabled: boolean;
+    apiKey: string;
+  };
   /** 面板管控的 Search 参数（对应 config.ts 的 PanelSearchConfig 字段） */
   panelSearch: Record<string, unknown>;
   /** 面板管控的 Extract/Crawl 参数（对应 config.ts 的 PanelExtractCrawlConfig 字段） */
@@ -48,6 +53,10 @@ const DEFAULT_CONFIG: AppConfig = {
   admin: {
     username: "admin",
     password: "admin123",
+  },
+  mcpAuth: {
+    enabled: false,
+    apiKey: "",
   },
   panelSearch: {},
   panelExtractCrawl: {},
@@ -78,6 +87,8 @@ export function loadConfig(): AppConfig {
     const config: AppConfig = {
       admin: parsed.admin ?? DEFAULT_CONFIG.admin,
       apiKeys: parsed.apiKeys,
+      // 兼容旧版本 config.json：无 mcpAuth 字段时回退到关闭状态
+      mcpAuth: parsed.mcpAuth ?? { enabled: false, apiKey: "" },
       panelSearch: parsed.panelSearch ?? {},
       panelExtractCrawl: parsed.panelExtractCrawl ?? {},
     };
@@ -171,4 +182,12 @@ export function verifyPassword(password: string, stored: string): boolean {
 /** 判断存储的密码是否需要迁移为 scrypt（旧明文/sha256 时为 true） */
 export function isPasswordOutdated(stored: string): boolean {
   return !stored.startsWith(SCRYPT_PREFIX);
+}
+
+/** 示例配置的占位密码：未修改时服务拒绝启动，强制用户先改密码 */
+export const PLACEHOLDER_PASSWORD = "CHANGE_ME";
+
+/** 检测存储的密码是否为示例占位密码（兼容明文/scrypt/sha256 三种存储形式） */
+export function isPlaceholderPassword(stored: string): boolean {
+  return stored === PLACEHOLDER_PASSWORD || verifyPassword(PLACEHOLDER_PASSWORD, stored);
 }

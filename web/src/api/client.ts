@@ -87,9 +87,15 @@ export interface AccountUsageItem {
   planLimit: number;
 }
 
+export interface McpAuthConfig {
+  enabled: boolean;
+  apiKey: string;
+}
+
 export interface PanelConfig {
   panelSearch: Record<string, unknown>;
   panelExtractCrawl: Record<string, unknown>;
+  mcpAuth: McpAuthConfig;
 }
 
 export interface StatusResponse extends PanelConfig {
@@ -122,10 +128,14 @@ export const api = {
       method: "POST",
     }),
   getConfig: () => request<PanelConfig>("/config"),
-  saveConfig: (panelSearch: Record<string, unknown>, panelExtractCrawl: Record<string, unknown>) =>
+  saveConfig: (
+    panelSearch: Record<string, unknown>,
+    panelExtractCrawl: Record<string, unknown>,
+    mcpAuth?: McpAuthConfig,
+  ) =>
     request<{ ok: boolean }>("/config", {
       method: "PUT",
-      body: { panelSearch, panelExtractCrawl },
+      body: mcpAuth ? { panelSearch, panelExtractCrawl, mcpAuth } : { panelSearch, panelExtractCrawl },
     }),
   changePassword: (oldPassword: string, newPassword: string) =>
     request<{ ok: boolean }>("/password", {
