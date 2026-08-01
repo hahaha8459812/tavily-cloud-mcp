@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx scripts/test-integration.ts && tsx scripts/test-keypool.ts && tsx scripts/test-edge-cases.ts && tsx scripts/test-admin-api.ts",
     "test:tools": "tsx scripts/test-all-tools.ts",
+    "test:tools:remote": "tsx scripts/test-all-tools-remote.ts",
     "test:hot": "tsx scripts/test-hot-reload.ts"
   },
   "engines": {
