@@ -156,9 +156,19 @@ function createMcpServer(): McpServer {
           .boolean()
           .optional()
           .describe("只返回包含查询中精确短语的结果（短语需加引号）"),
+        include_domains: z
+          .array(z.string())
+          .max(300)
+          .optional()
+          .describe("仅在这些域名内搜索（用户要求在特定网站搜索时设为该网站域名），最多 300 个"),
+        exclude_domains: z
+          .array(z.string())
+          .max(150)
+          .optional()
+          .describe("排除这些域名的搜索结果（用户要求排除某网站时设为该网站域名），最多 150 个"),
       },
     },
-    async ({ query, max_results, search_depth, topic, time_range, start_date, end_date, exact_match }) => {
+    async ({ query, max_results, search_depth, topic, time_range, start_date, end_date, exact_match, include_domains, exclude_domains }) => {
       if (!query) {
         return errorResult("错误：query 参数不能为空");
       }
@@ -173,6 +183,8 @@ function createMcpServer(): McpServer {
           startDate: start_date,
           endDate: end_date,
           exactMatch: exact_match,
+          includeDomains: include_domains,
+          excludeDomains: exclude_domains,
         };
 
         // 每次调用时实时读取面板配置，保证面板热修改即时生效

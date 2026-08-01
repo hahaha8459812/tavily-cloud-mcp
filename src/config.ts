@@ -13,8 +13,6 @@ export interface PanelSearchConfig {
   includeImageDescriptions?: boolean;
   includeFavicon?: boolean;
   chunksPerSource?: number;
-  includeDomains?: string[];
-  excludeDomains?: string[];
   country?: string;
   autoParameters?: boolean;
 }
@@ -72,11 +70,6 @@ function isValidRangeNumber(value: unknown, min: number, max: number): boolean {
   return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
 }
 
-/** 校验字符串数组（域名列表） */
-function isValidStringArray(value: unknown): boolean {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
-}
-
 /** 校验 panelSearch 各字段合法取值（L5） */
 function isValidPanelSearchValue(key: string, value: unknown): boolean {
   switch (key) {
@@ -92,12 +85,11 @@ function isValidPanelSearchValue(key: string, value: unknown): boolean {
     case "chunks_per_source":
       // Search 面板参数的 chunks_per_source 官方限制 1-3（Extract 的 1-5 由 AI 参数控制）
       return isValidRangeNumber(value, 1, 3);
-    case "include_domains":
-    case "exclude_domains":
-      return isValidStringArray(value);
     case "country":
       return typeof value === "string" && value.length > 0;
     default:
+      // include_domains/exclude_domains 已从面板配置移除，改为 web_search 的 AI 参数；
+      // 旧 config.json 残留的这两个字段将被忽略
       return false;
   }
 }
@@ -186,8 +178,6 @@ export function loadPanelSearchConfig(): PanelSearchConfig {
   );
   config.includeFavicon = parseBooleanEnv(process.env.TAVILY_INCLUDE_FAVICON);
   config.chunksPerSource = parseNumberEnv(process.env.TAVILY_CHUNKS_PER_SOURCE);
-  config.includeDomains = parseStringArrayEnv(process.env.TAVILY_INCLUDE_DOMAINS);
-  config.excludeDomains = parseStringArrayEnv(process.env.TAVILY_EXCLUDE_DOMAINS);
   config.country = process.env.TAVILY_COUNTRY || undefined;
   config.autoParameters = parseBooleanEnv(process.env.TAVILY_AUTO_PARAMETERS);
 
@@ -221,12 +211,6 @@ export function applyPanelSearchConfig(
   }
   if (panelConfig.chunksPerSource !== undefined) {
     merged.chunksPerSource = panelConfig.chunksPerSource;
-  }
-  if (panelConfig.includeDomains !== undefined) {
-    merged.includeDomains = panelConfig.includeDomains;
-  }
-  if (panelConfig.excludeDomains !== undefined) {
-    merged.excludeDomains = panelConfig.excludeDomains;
   }
   if (panelConfig.country !== undefined) {
     merged.country = panelConfig.country;

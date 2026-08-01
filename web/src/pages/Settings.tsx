@@ -11,8 +11,6 @@ interface SettingsFormValues {
   include_image_descriptions: boolean
   include_favicon: boolean
   chunks_per_source: number | null
-  include_domains: string
-  exclude_domains: string
   country: string
   auto_parameters: boolean
   // Extract/Crawl 面板参数
@@ -58,8 +56,6 @@ export default function Settings() {
         include_image_descriptions: (search.include_image_descriptions as boolean) ?? false,
         include_favicon: (search.include_favicon as boolean) ?? false,
         chunks_per_source: (search.chunks_per_source as number) ?? null,
-        include_domains: Array.isArray(search.include_domains) ? (search.include_domains as string[]).join(', ') : '',
-        exclude_domains: Array.isArray(search.exclude_domains) ? (search.exclude_domains as string[]).join(', ') : '',
         country: (search.country as string) ?? '',
         auto_parameters: (search.auto_parameters as boolean) ?? false,
         extract_include_images: (extract.include_images as boolean) ?? false,
@@ -92,12 +88,6 @@ export default function Settings() {
           include_image_descriptions: values.include_image_descriptions,
           include_favicon: values.include_favicon,
           chunks_per_source: values.chunks_per_source ?? undefined,
-          include_domains: values.include_domains
-            ? values.include_domains.split(',').map((s) => s.trim()).filter(Boolean)
-            : undefined,
-          exclude_domains: values.exclude_domains
-            ? values.exclude_domains.split(',').map((s) => s.trim()).filter(Boolean)
-            : undefined,
           country: values.country || undefined,
           auto_parameters: values.auto_parameters,
         },
@@ -140,12 +130,16 @@ export default function Settings() {
       </div>
       <Form form={form} layout="vertical" onFinish={handleSave} style={{ maxWidth: 640 }}>
         <Divider>搜索参数（Search）</Divider>
-        <Form.Item name="include_answer" label="附带 LLM 答案">
+        <Form.Item
+          name="include_answer"
+          label="附带 LLM 答案"
+          extra="档位不额外计费；积分由搜索深度决定（basic 1 积分、advanced 2 积分），AI 调用时选择搜索深度"
+        >
           <Select
             options={[
               { value: 'false', label: '关闭' },
-              { value: 'basic', label: '快速答案（basic，消耗 1 积分）' },
-              { value: 'advanced', label: '详细答案（advanced，更完整）' },
+              { value: 'basic', label: '快速答案（basic）' },
+              { value: 'advanced', label: '详细答案（advanced）' },
             ]}
           />
         </Form.Item>
@@ -184,12 +178,6 @@ export default function Settings() {
         </Form.Item>
         <Form.Item name="chunks_per_source" label="每来源内容片段数（1-3）">
           <InputNumber min={1} max={3} style={{ width: 120 }} />
-        </Form.Item>
-        <Form.Item name="include_domains" label="仅在这些域名内搜索（逗号分隔，最多 300 个）">
-          <Input placeholder="example.com, blog.example.com" />
-        </Form.Item>
-        <Form.Item name="exclude_domains" label="排除这些域名（逗号分隔，最多 150 个）">
-          <Input placeholder="spam.com, ads.com" />
         </Form.Item>
         <Form.Item
           name="country"

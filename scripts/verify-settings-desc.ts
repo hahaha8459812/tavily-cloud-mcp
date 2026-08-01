@@ -57,14 +57,16 @@ async function main() {
     ok("country 提示不支持 ISO 代码", text.includes("不支持 ISO 代码"));
     ok("auto_parameters 积分警告", text.includes("search_depth 可能自动升为 advanced"));
     ok("include_image_descriptions 依赖提示", text.includes("需同时开启「包含图片」"));
-    ok("include_domains 上限 300", text.includes("最多 300 个"));
-    ok("exclude_domains 上限 150", text.includes("最多 150 个"));
+    ok("include_answer 积分规则说明", text.includes("积分由搜索深度决定"));
     ok("chunks 标签范围 1-3", text.includes("每来源内容片段数（1-3）"));
+    // include_domains/exclude_domains 已从面板移除，改为 web_search 的 AI 参数
+    ok("面板不再显示域名白名单配置", !text.includes("仅在这些域名内搜索"));
+    ok("面板不再显示域名黑名单配置", !text.includes("排除这些域名"));
 
     // 2. 下拉选项档位描述
     const answerOptions = await readSelectOptions(0);
-    ok("include_answer 含快速答案档位", answerOptions.includes("快速答案（basic，消耗 1 积分）"));
-    ok("include_answer 含详细答案档位", answerOptions.includes("详细答案（advanced，更完整）"));
+    ok("include_answer 含快速答案档位", answerOptions.includes("快速答案（basic）"));
+    ok("include_answer 含详细答案档位", answerOptions.includes("详细答案（advanced）"));
 
     const rawContentOptions = await readSelectOptions(1);
     ok("include_raw_content 含 markdown 推荐", rawContentOptions.includes("Markdown 格式（推荐）"));
