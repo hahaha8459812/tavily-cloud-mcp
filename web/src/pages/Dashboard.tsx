@@ -30,8 +30,16 @@ import {
   MailOutlined,
   StopOutlined,
   RollbackOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons'
 import { api, type StatusResponse, type KeyUsageItem } from '../api/client'
+
+/** 毫秒时间戳格式化为本地时间（用于套餐重置时间展示） */
+function formatQuotaReset(ms: number): string {
+  const date = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 
 /** 健康状态徽标：正常 / 限流中(429) / 额度耗尽(432) / 永久停用(433或401) */
 function HealthTag({ item }: { item: KeyUsageItem }) {
@@ -166,6 +174,26 @@ function KeyCard({
               {item.keyRemaining === null ? '未知' : `${item.keyRemaining} Credits`}
             </span>
           </div>
+          {item.quotaResetAt !== null && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                marginTop: 6,
+                fontSize: 12,
+                color: '#8a8aa3',
+              }}
+            >
+              <span>
+                <Tooltip title="当前计费周期结束后额度重置（Tavily 官网 last_reset + 套餐周期推算）">
+                  <CalendarOutlined style={{ marginRight: 4 }} />
+                  套餐重置
+                </Tooltip>
+              </span>
+              <span style={{ color: '#a5a5bd' }}>{formatQuotaReset(item.quotaResetAt)}</span>
+            </div>
+          )}
         </>
       ) : (
         <div
@@ -311,6 +339,9 @@ export default function Dashboard() {
   // 账户级口径：按 Tavily 账户去重后的 plan 用量合计，多 key 同账户不重复累计
   const totalPlanUsage = accounts.reduce((sum, account) => sum + account.planUsage, 0)
   const totalPlanLimit = accounts.reduce((sum, account) => sum + account.planLimit, 0)
+  // 剩余总量：总额度 - 已用；额度无上限（limit 累计为 0）时显示未知
+  const totalPlanRemaining =
+    totalPlanLimit > 0 ? Math.max(totalPlanLimit - totalPlanUsage, 0) : null
   const planUsagePercent = totalPlanLimit > 0 ? Math.round((totalPlanUsage / totalPlanLimit) * 100) : 0
 
   const stats: Array<{
@@ -389,6 +420,11 @@ export default function Dashboard() {
                 />
                 <div className="plan-usage-total">
                   总消耗 <b>{totalPlanUsage}</b> / {totalPlanLimit} Credits
+                </div>
+                <div className="plan-usage-remaining">
+                  剩余
+                  <b>{totalPlanRemaining === null ? '未知' : `${totalPlanRemaining} Credits`}</b>
+                  {planUsagePercent >= 90 ? <span className="plan-usage-warn">额度紧张</span> : null}
                 </div>
               </div>
             </div>

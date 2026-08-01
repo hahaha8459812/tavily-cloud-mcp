@@ -313,6 +313,29 @@ body {
   font-weight: 600;
 }
 
+.plan-usage-remaining {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #8a8aa3;
+}
+
+.plan-usage-remaining b {
+  color: #e4e4f0;
+  font-weight: 600;
+}
+
+.plan-usage-warn {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+}
+
 /* ============ 密钥额度卡片 ============ */
 .key-card {
   border-radius: 16px;
