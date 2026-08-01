@@ -222,7 +222,7 @@ function createMcpServer(): McpServer {
     "web_extract",
     {
       description:
-        "从指定的一个或多个 URL 提取网页内容，返回 markdown/text 格式。仅提取你明确给出的 URL，不会遍历页面里的链接；要遍历整站请用 web_crawl",
+        "从指定的一个或多个 URL 提取网页内容，返回 markdown/text 格式。仅提取你明确给出的 URL，不会遍历页面里的链接；要遍历整站请用 web_crawl。提取深度（basic/advanced）由面板统一配置，AI 无法设置",
       inputSchema: {
         urls: z
           .union([z.string(), z.array(z.string())])
@@ -238,10 +238,6 @@ function createMcpServer(): McpServer {
           .max(5)
           .optional()
           .describe("提取每个来源返回的内容片段数（提取操作用 1-5，需同时提供 query）"),
-        extract_depth: z
-          .enum(["basic", "advanced"])
-          .optional()
-          .describe("提取深度：advanced 用于 LinkedIn、受保护站点或表格/嵌入内容，更完整但更慢"),
         timeout: z
           .number()
           .min(1)
@@ -250,7 +246,7 @@ function createMcpServer(): McpServer {
           .describe("单次提取超时秒数，1-60"),
       },
     },
-    async ({ urls, query, chunks_per_source, extract_depth, timeout }) => {
+    async ({ urls, query, chunks_per_source, timeout }) => {
       if (!urls) {
         return errorResult("错误：urls 参数不能为空");
       }
@@ -265,7 +261,6 @@ function createMcpServer(): McpServer {
           urls,
           query,
           chunksPerSource: chunks_per_source,
-          extractDepth: extract_depth,
           timeout,
         };
         const mergedParams = applyPanelExtractConfig(

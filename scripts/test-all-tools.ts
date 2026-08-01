@@ -27,7 +27,6 @@ async function main() {
     console.log("[1/3] web_extract 测试 (wikipedia 页面)...");
     const extractResult = (await callToolAndParse(client, "web_extract", {
       urls: "https://en.wikipedia.org/wiki/Artificial_intelligence",
-      extract_depth: "basic",
     })) as {
       results?: Array<{ url?: string; raw_content?: string }>;
       failed_results?: unknown[];

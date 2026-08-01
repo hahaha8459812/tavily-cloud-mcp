@@ -45,7 +45,7 @@ async function main() {
     {
       const raw = await client.callTool({
         name: "web_extract",
-        arguments: { urls: "https://en.wikipedia.org/wiki/Artificial_intelligence", extract_depth: "basic" },
+        arguments: { urls: "https://en.wikipedia.org/wiki/Artificial_intelligence" },
       });
       const text = raw.content.filter((i) => i.type === "text").map((i) => (i as { text: string }).text).join("\n");
       const result = JSON.parse(text);
