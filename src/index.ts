@@ -137,7 +137,7 @@ function createMcpServer(): McpServer {
           .min(1)
           .max(20)
           .default(5)
-          .describe("返回结果数量，默认 5，最大 20"),
+          .describe("返回结果数量，默认 5，最大 20（数量越多开销略高）"),
         topic: z
           .enum(["general", "news", "finance"])
           .optional()
@@ -222,7 +222,7 @@ function createMcpServer(): McpServer {
     "web_extract",
     {
       description:
-        "从指定的一个或多个 URL 提取网页内容，返回 markdown/text 格式。仅提取你明确给出的 URL，不会遍历页面里的链接；要遍历整站请用 web_crawl。提取深度（basic/advanced）由面板统一配置，AI 无法设置",
+        "从指定的一个或多个 URL 提取网页内容，返回 markdown/text 格式。仅提取你明确给出的 URL，不会遍历页面里的链接；要遍历整站请用 web_crawl",
       inputSchema: {
         urls: z
           .union([z.string(), z.array(z.string())])
@@ -237,7 +237,7 @@ function createMcpServer(): McpServer {
           .min(1)
           .max(5)
           .optional()
-          .describe("提取每个来源返回的内容片段数（提取操作用 1-5，需同时提供 query）"),
+          .describe("提取每个来源返回的内容片段数（提取操作用 1-5，需同时提供 query；值越大内容越多、开销略高）"),
         timeout: z
           .number()
           .min(1)
@@ -302,20 +302,20 @@ function createMcpServer(): McpServer {
           .min(1)
           .max(5)
           .optional()
-          .describe("爬取最大深度，定义可离开根 URL 多远，1-5"),
+          .describe("爬取最大深度，定义可离开根 URL 多远，1-5（值越大抓取页面越多、开销越高）"),
         max_breadth: z
           .number()
           .int()
           .min(1)
           .max(500)
           .optional()
-          .describe("每层最多跟随的链接数（即每个页面），1-500"),
+          .describe("每层最多跟随的链接数（即每个页面），1-500（值越大开销越高）"),
         limit: z
           .number()
           .int()
           .min(1)
           .optional()
-          .describe("停止前爬虫处理的总链接数上限"),
+          .describe("停止前爬虫处理的总链接数上限（值越大开销越高）"),
         select_paths: z
           .array(z.string())
           .optional()
@@ -402,20 +402,20 @@ function createMcpServer(): McpServer {
           .min(1)
           .max(5)
           .optional()
-          .describe("映射最大深度，定义可离开根 URL 多远，1-5"),
+          .describe("映射最大深度，定义可离开根 URL 多远，1-5（值越大映射页面越多、开销越高）"),
         max_breadth: z
           .number()
           .int()
           .min(1)
           .max(500)
           .optional()
-          .describe("每层最多跟随的链接数（即每个页面），1-500"),
+          .describe("每层最多跟随的链接数（即每个页面），1-500（值越大开销越高）"),
         limit: z
           .number()
           .int()
           .min(1)
           .optional()
-          .describe("停止前映射处理的总链接数上限"),
+          .describe("停止前映射处理的总链接数上限（值越大开销越高）"),
         select_paths: z
           .array(z.string())
           .optional()
@@ -493,7 +493,7 @@ function createMcpServer(): McpServer {
         model: z
           .enum(["mini", "pro", "auto"])
           .optional()
-          .describe("研究模型：mini 适合子主题少的窄任务，pro 适合子主题多的宽任务，auto 自动选择最优模型"),
+          .describe("研究模型：mini 适合子主题少的窄任务，开销最低；pro 适合子主题多的宽任务，开销显著高于 mini；auto 自动选择最优模型"),
         citation_format: z
           .enum(["numbered", "mla", "apa", "chicago"])
           .optional()
