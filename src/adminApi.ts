@@ -1,4 +1,5 @@
 import type http from "node:http";
+import crypto from "node:crypto";
 import type { TavilyKeyPool } from "./keyPool.js";
 import {
   loadConfig,
@@ -6,6 +7,7 @@ import {
   hashPassword,
   verifyPassword,
   isPasswordOutdated,
+  getOrCreateSessionSecret,
   type AppConfig,
 } from "./configStore.js";
 
@@ -20,10 +22,12 @@ import {
  * - GET  /api/config                  读取面板参数
  * - PUT  /api/config                  保存面板参数
  * - POST /api/password                修改管理员密码
+ *
+ * 登录态使用无状态签名 token（HMAC-SHA256）：token 内嵌过期时间，服务端不存 session。
+ * 签名密钥持久化在 config.json（getOrCreateSessionSecret），重启后已签发的 token 依然有效。
  */
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 登录 token 有效期 24 小时
-const sessions = new Map<string, { expiresAt: number }>();
 /** 管理 API 请求体大小上限 */
 const MAX_BODY_BYTES = 1_048_576;
 
@@ -76,19 +80,49 @@ function clearLoginFailures(ip: string): void {
   loginLocks.delete(ip);
 }
 
-/** 简单 Bearer token 鉴权中间件 */
+/** 签发无状态签名 token：payload 携带过期时间戳，用 sessionSecret 做 HMAC 签名 */
+function issueToken(secret: string): string {
+  const expiresAt = Date.now() + SESSION_TTL_MS;
+  const payload = Buffer.from(JSON.stringify({ exp: expiresAt })).toString("base64url");
+  const signature = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+/** 校验 token：验签 + 检查过期时间；签名密钥不匹配（如会话密钥变更）时视为无效 */
+function isTokenValid(token: string, secret: string): boolean {
+  const dotIndex = token.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex === token.length - 1) {
+    return false;
+  }
+  const payload = token.slice(0, dotIndex);
+  const signature = token.slice(dotIndex + 1);
+  const expected = crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+  // 常数时间比较，避免时序侧信道
+  const signatureBuf = Buffer.from(signature);
+  const expectedBuf = Buffer.from(expected);
+  if (signatureBuf.length !== expectedBuf.length) {
+    return false;
+  }
+  if (!crypto.timingSafeEqual(signatureBuf, expectedBuf)) {
+    return false;
+  }
+  try {
+    const { exp } = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { exp?: number };
+    return typeof exp === "number" && Date.now() < exp;
+  } catch {
+    return false;
+  }
+}
+
+/** Bearer token 鉴权中间件（无状态：验签即可，重启不失效） */
 function isAuthorized(req: http.IncomingMessage): boolean {
   const header = req.headers.authorization ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  const session = sessions.get(token);
-  if (!session) {
+  if (!token) {
     return false;
   }
-  if (Date.now() > session.expiresAt) {
-    sessions.delete(token);
-    return false;
-  }
-  return true;
+  const secret = getOrCreateSessionSecret();
+  return isTokenValid(token, secret);
 }
 
 function sendJson(res: http.ServerResponse, status: number, body: unknown): void {
@@ -153,8 +187,8 @@ export async function handleAdminApi(
           config.admin.password = hashPassword(password);
           saveConfig(config);
         }
-        const token = crypto.randomUUID();
-        sessions.set(token, { expiresAt: Date.now() + SESSION_TTL_MS });
+        // 签发无状态签名 token（持久密钥，重启后仍有效）
+        const token = issueToken(getOrCreateSessionSecret());
         sendJson(res, 200, { token });
       } else {
         recordLoginFailure(ip);

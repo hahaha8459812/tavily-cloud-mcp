@@ -11,7 +11,15 @@ import {
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
-import { api, getToken, setToken, clearToken, clearSavedPassword } from './api/client'
+import {
+  api,
+  getToken,
+  setToken,
+  clearToken,
+  clearSavedPassword,
+  getSavedPassword,
+  SESSION_EXPIRED_EVENT,
+} from './api/client'
 
 const { Sider, Content } = Layout
 
@@ -20,6 +28,7 @@ const { Sider, Content } = Layout
  * - 已有 token：直接进入
  * - 无 token 但浏览器记住密码：静默调登录接口换取新 token 后进入（token 24h 过期后自动续）
  * - 无 token 且无记住密码：跳转登录页
+ * - 会话中途失效（后端重启导致内存 session 丢失）：监听会话失效事件，用记住的密码重新登录
  */
 function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation()
@@ -27,13 +36,14 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
+
     const autoLogin = async () => {
       if (getToken()) {
         setChecking(false)
         return
       }
       // token 缺失/过期：尝试用记住的密码自动登录
-      const savedPassword = localStorage.getItem('tavily_admin_password')
+      const savedPassword = getSavedPassword()
       if (savedPassword) {
         try {
           const { token } = await api.login(savedPassword)
@@ -52,9 +62,20 @@ function RequireAuth({ children }: { children: ReactNode }) {
         setChecking(false)
       }
     }
+
+    // 会话中途失效：重新触发自动登录（若记住密码有效则无缝恢复）
+    const handleSessionExpired = () => {
+      if (!cancelled) {
+        setChecking(true)
+        void autoLogin()
+      }
+    }
+
     void autoLogin()
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
     return () => {
       cancelled = true
+      window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired)
     }
   }, [])
 

@@ -29,39 +29,100 @@ export function clearSavedPassword(): void {
   localStorage.removeItem(PASSWORD_KEY);
 }
 
-/** 统一的 API 请求封装：自动携带 token，错误时抛出可读信息 */
+/** 统一的 API 请求封装：自动携带 token，401 时自动续登并重放请求，错误时抛出可读信息 */
 async function request<T>(
   path: string,
   options: { method?: string; body?: unknown } = {},
 ): Promise<T> {
-  const token = getToken();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`/api${path}`, {
-    method: options.method ?? "GET",
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
-
-  const text = await response.text();
-  const body = text ? JSON.parse(text) : {};
-
-  if (!response.ok) {
-    // 401 未授权时清掉 token，交由路由层跳转登录
-    if (response.status === 401 && path !== "/login") {
-      clearToken();
+  const execute = async (token: string | null): Promise<T> => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
     }
-    const error = new Error((body as { error?: string }).error ?? `请求失败：HTTP ${response.status}`);
-    (error as { status?: number }).status = response.status;
+
+    const response = await fetch(`/api${path}`, {
+      method: options.method ?? "GET",
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    });
+
+    const text = await response.text();
+    const body = text ? JSON.parse(text) : {};
+
+    if (!response.ok) {
+      const error = new Error((body as { error?: string }).error ?? `请求失败：HTTP ${response.status}`);
+      (error as { status?: number }).status = response.status;
+      throw error;
+    }
+
+    return body as T;
+  };
+
+  try {
+    return await execute(getToken());
+  } catch (error) {
+    const status = (error as { status?: number }).status;
+    // 非 401（或登录接口自身失败）直接抛出
+    if (status !== 401 || path === "/login") {
+      throw error;
+    }
+
+    // 401 会话失效：尝试用记住的密码静默重登，成功后重放原请求（无需用户重新登录）
+    const newToken = await reLoginWithSavedPassword();
+    if (newToken) {
+      try {
+        return await execute(newToken);
+      } catch (retryError) {
+        // 重登后仍 401（极端：token 立即失效）则彻底清理
+        if ((retryError as { status?: number }).status === 401) {
+          clearToken();
+          notifySessionExpired();
+        }
+        throw retryError;
+      }
+    }
+
+    // 无记住密码或重登失败：清理状态并通知跳转登录页
+    clearToken();
+    notifySessionExpired();
     throw error;
   }
+}
 
-  return body as T;
+/** 会话失效事件：路由层监听后跳转登录页 */
+export const SESSION_EXPIRED_EVENT = "tavily:session-expired";
+export function notifySessionExpired(): void {
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+}
+
+/** 进行中的自动重登 promise（并发 401 只触发一次重登） */
+let reLoginInFlight: Promise<string | null> | null = null;
+
+/** 用记住的密码重新登录并更新 token；无记住密码或失败返回 null */
+async function reLoginWithSavedPassword(): Promise<string | null> {
+  if (reLoginInFlight) {
+    return reLoginInFlight;
+  }
+  reLoginInFlight = (async () => {
+    const savedPassword = getSavedPassword();
+    if (!savedPassword) {
+      return null;
+    }
+    try {
+      const { token } = await api.login(savedPassword);
+      setToken(token);
+      return token;
+    } catch {
+      // 密码已失效
+      clearSavedPassword();
+      return null;
+    }
+  })().finally(() => {
+    reLoginInFlight = null;
+  });
+  return reLoginInFlight;
 }
 
 export interface LoginResponse {

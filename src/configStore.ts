@@ -41,6 +41,8 @@ export interface AppConfig {
   /** 是否启用高开销的深度研究工具（research_create/research_get_status）；
    * 关闭后 MCP 工具列表中不再注册这两个工具（面板开关控制） */
   researchEnabled: boolean;
+  /** 面板登录 session 签名密钥（HMAC）；持久化到 config.json，重启后已发 token 仍有效 */
+  sessionSecret?: string;
   /** 面板管控的 Search 参数（对应 config.ts 的 PanelSearchConfig 字段） */
   panelSearch: Record<string, unknown>;
   /** 面板管控的 Extract/Crawl 参数（对应 config.ts 的 PanelExtractCrawlConfig 字段） */
@@ -96,6 +98,8 @@ export function loadConfig(): AppConfig {
       mcpAuth: parsed.mcpAuth ?? { enabled: false, apiKey: "" },
       // 兼容旧版本 config.json：无 researchEnabled 字段时默认启用（行为与之前一致）
       researchEnabled: parsed.researchEnabled ?? true,
+      // 登录 session 签名密钥（可选，缺失时由 getOrCreateSessionSecret 生成）
+      sessionSecret: parsed.sessionSecret,
       panelSearch: parsed.panelSearch ?? {},
       panelExtractCrawl: parsed.panelExtractCrawl ?? {},
     };
@@ -110,6 +114,17 @@ export function loadConfig(): AppConfig {
     if (missingRequiredField) {
       try {
         saveConfig(config);
+        // 写回后必须重新读盘：避免用写回前的旧 config 建立缓存（否则下次读仍是旧数据）
+        const reread = JSON.parse(readFileSync(CONFIG_FILE_PATH, "utf8")) as Partial<AppConfig>;
+        Object.assign(config, {
+          admin: reread.admin ?? DEFAULT_CONFIG.admin,
+          apiKeys: reread.apiKeys,
+          mcpAuth: reread.mcpAuth ?? { enabled: false, apiKey: "" },
+          researchEnabled: reread.researchEnabled ?? true,
+          sessionSecret: reread.sessionSecret,
+          panelSearch: reread.panelSearch ?? {},
+          panelExtractCrawl: reread.panelExtractCrawl ?? {},
+        });
       } catch (error) {
         console.warn(
           `[配置] config.json 缺少字段自动补全写回失败：${error instanceof Error ? error.message : String(error)}，` +
@@ -167,6 +182,21 @@ export function saveConfig(config: AppConfig): void {
   }
   // 写入后使缓存失效，保证下次 loadConfig 读到最新值（L6）
   configCache = null;
+}
+
+/**
+ * 获取面板登录 session 签名密钥：不存在时生成随机密钥并持久化到 config.json。
+ * 密钥随配置文件持久化（挂载卷），重启后已签发的登录 token 依然有效，避免频繁重新登录。
+ */
+export function getOrCreateSessionSecret(): string {
+  const config = loadConfig();
+  if (config.sessionSecret && config.sessionSecret.length >= 32) {
+    return config.sessionSecret;
+  }
+  const secret = crypto.randomBytes(32).toString("hex");
+  config.sessionSecret = secret;
+  saveConfig(config);
+  return secret;
 }
 
 /**
