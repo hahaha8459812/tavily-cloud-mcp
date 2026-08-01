@@ -119,7 +119,8 @@ function createMcpServer(): McpServer {
   server.registerTool(
     "web_search",
     {
-      description: "使用 Tavily 进行实时网络搜索",
+      description:
+        "使用 Tavily 实时搜索网络。适合查询最新消息、事实或超出你知识截止日期（cutoff）的信息。返回摘要与来源 URL，比 research 快得多，需要快速答案时优先用它",
       inputSchema: {
         query: z.string().describe("搜索关键词"),
         max_results: z
@@ -132,11 +133,11 @@ function createMcpServer(): McpServer {
         search_depth: z
           .enum(["advanced", "basic", "fast", "ultra-fast"])
           .default("basic")
-          .describe("搜索深度：advanced 质量最高但更慢更贵，ultra-fast 最快最省"),
+          .describe("搜索深度：basic 通用结果、advanced 更彻底但更慢更贵、fast 低延迟高相关、ultra-fast 极致低延迟最省"),
         topic: z
           .enum(["general", "news", "finance"])
           .optional()
-          .describe("搜索类别：general 通用，news 新闻，finance 金融"),
+          .describe("搜索类别，决定使用哪个搜索代理：general 通用，news 新闻，finance 金融"),
         time_range: z
           .enum(["day", "week", "month", "year", "d", "w", "m", "y"])
           .optional()
@@ -145,12 +146,12 @@ function createMcpServer(): McpServer {
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional()
-          .describe("返回该日期之后的结果，格式 YYYY-MM-DD"),
+          .describe("返回该日期之后的结果，格式必须为 YYYY-MM-DD"),
         end_date: z
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/)
           .optional()
-          .describe("返回该日期之前的结果，格式 YYYY-MM-DD"),
+          .describe("返回该日期之前的结果，格式必须为 YYYY-MM-DD"),
         exact_match: z
           .boolean()
           .optional()
@@ -205,7 +206,8 @@ function createMcpServer(): McpServer {
   server.registerTool(
     "web_extract",
     {
-      description: "从指定的一个或多个 URL 提取网页内容",
+      description:
+        "从指定的一个或多个 URL 提取网页内容，返回 markdown/text 格式。仅提取你明确给出的 URL，不会遍历页面里的链接；要遍历整站请用 web_crawl",
       inputSchema: {
         urls: z
           .union([z.string(), z.array(z.string())])
@@ -224,7 +226,7 @@ function createMcpServer(): McpServer {
         extract_depth: z
           .enum(["basic", "advanced"])
           .optional()
-          .describe("提取深度：advanced 获取更完整数据（含表格），更慢"),
+          .describe("提取深度：advanced 用于 LinkedIn、受保护站点或表格/嵌入内容，更完整但更慢"),
         timeout: z
           .number()
           .min(1)
@@ -276,41 +278,42 @@ function createMcpServer(): McpServer {
   server.registerTool(
     "web_crawl",
     {
-      description: "从起始 URL 开始遍历网站，抓取多个页面的内容",
+      description:
+        "从根 URL 开始自动遍历网站并抓取多个页面的内容，深度/广度可配置。适合整站抓取；只提取少数指定页面请用 web_extract",
       inputSchema: {
         url: z.string().describe("爬取的起始根 URL"),
         instructions: z
           .string()
           .optional()
-          .describe("自然语言爬取指令，如「找到所有 Python SDK 相关页面」"),
+          .describe("自然语言爬取指令，指定应返回哪些类型的页面，如「找到所有 Python SDK 相关页面」"),
         max_depth: z
           .number()
           .int()
           .min(1)
           .max(5)
           .optional()
-          .describe("爬取最大深度，1-5"),
+          .describe("爬取最大深度，定义可离开根 URL 多远，1-5"),
         max_breadth: z
           .number()
           .int()
           .min(1)
           .max(500)
           .optional()
-          .describe("每层最多跟随的链接数，1-500"),
+          .describe("每层最多跟随的链接数（即每个页面），1-500"),
         limit: z
           .number()
           .int()
           .min(1)
           .optional()
-          .describe("处理链接总数上限"),
+          .describe("停止前爬虫处理的总链接数上限"),
         select_paths: z
           .array(z.string())
           .optional()
-          .describe("仅匹配这些正则路径，如 /docs/.*"),
+          .describe("仅选择匹配这些正则路径的 URL，如 /docs/.*、/api/v1.*"),
         select_domains: z
           .array(z.string())
           .optional()
-          .describe("仅爬取这些正则域名，如 ^docs\\\\.example\\\\.com$"),
+          .describe("仅爬取这些正则匹配的域名/子域名，如 ^docs\\.example\\.com$"),
         exclude_paths: z
           .array(z.string())
           .optional()
@@ -322,7 +325,7 @@ function createMcpServer(): McpServer {
         allow_external: z
           .boolean()
           .optional()
-          .describe("是否在结果中包含外部域名链接"),
+          .describe("是否在最终结果中返回外部域名链接"),
         timeout: z
           .number()
           .min(10)
@@ -375,41 +378,42 @@ function createMcpServer(): McpServer {
   server.registerTool(
     "web_map",
     {
-      description: "像图一样遍历网站，生成站点 URL 地图",
+      description:
+        "映射网站结构，返回从根 URL 出发找到的 URL 列表。只生成站点 URL 清单，不抓取页面内容；需要页面内容请用 web_crawl",
       inputSchema: {
         url: z.string().describe("站点地图的起始根 URL"),
         instructions: z
           .string()
           .optional()
-          .describe("自然语言映射指令，如「找到所有关于 Python SDK 的页面」"),
+          .describe("自然语言映射指令，指定应找到哪些类型的页面，如「找到所有关于 Python SDK 的页面」"),
         max_depth: z
           .number()
           .int()
           .min(1)
           .max(5)
           .optional()
-          .describe("映射最大深度，1-5"),
+          .describe("映射最大深度，定义可离开根 URL 多远，1-5"),
         max_breadth: z
           .number()
           .int()
           .min(1)
           .max(500)
           .optional()
-          .describe("每层最多跟随的链接数，1-500"),
+          .describe("每层最多跟随的链接数（即每个页面），1-500"),
         limit: z
           .number()
           .int()
           .min(1)
           .optional()
-          .describe("处理链接总数上限"),
+          .describe("停止前映射处理的总链接数上限"),
         select_paths: z
           .array(z.string())
           .optional()
-          .describe("仅匹配这些正则路径"),
+          .describe("仅选择匹配这些正则路径的 URL，如 /docs/.*、/api/v1.*"),
         select_domains: z
           .array(z.string())
           .optional()
-          .describe("仅映射这些正则域名"),
+          .describe("仅映射这些正则匹配的域名/子域名，如 ^docs\\.example\\.com$"),
         exclude_paths: z
           .array(z.string())
           .optional()
@@ -421,7 +425,7 @@ function createMcpServer(): McpServer {
         allow_external: z
           .boolean()
           .optional()
-          .describe("是否包含外部域名链接"),
+          .describe("是否在最终结果中返回外部域名链接"),
         timeout: z
           .number()
           .min(10)
@@ -472,13 +476,14 @@ function createMcpServer(): McpServer {
   server.registerTool(
     "research_create",
     {
-      description: "创建 Tavily 深度研究任务，返回 request_id（需用 research_get_status 轮询结果）",
+      description:
+        "对给定主题/问题做多来源综合深度研究，适合需要从多个来源收集信息才能回答的任务。耗时约 30-90 秒，创建后用 research_get_status 轮询结果；需要快速答案时优先用 web_search",
       inputSchema: {
         input: z.string().describe("要研究的主题或问题"),
         model: z
           .enum(["mini", "pro", "auto"])
           .optional()
-          .describe("研究模型：mini 轻量快速，pro 全面深入，auto 自动选择"),
+          .describe("研究模型：mini 适合子主题少的窄任务，pro 适合子主题多的宽任务，auto 自动选择最优模型"),
         citation_format: z
           .enum(["numbered", "mla", "apa", "chicago"])
           .optional()
@@ -532,7 +537,8 @@ function createMcpServer(): McpServer {
   server.registerTool(
     "research_get_status",
     {
-      description: "查询研究任务状态与结果（status=completed 时返回报告）",
+      description:
+        "查询 research_create 创建的研究任务状态与结果。status 为 pending/in_progress 时继续轮询，completed 时返回报告",
       inputSchema: {
         request_id: z.string().describe("research_create 返回的任务 ID"),
       },

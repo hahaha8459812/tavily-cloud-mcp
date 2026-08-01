@@ -90,7 +90,8 @@ function isValidPanelSearchValue(key: string, value: unknown): boolean {
     case "auto_parameters":
       return typeof value === "boolean";
     case "chunks_per_source":
-      return isValidRangeNumber(value, 1, 5);
+      // Search 面板参数的 chunks_per_source 官方限制 1-3（Extract 的 1-5 由 AI 参数控制）
+      return isValidRangeNumber(value, 1, 3);
     case "include_domains":
     case "exclude_domains":
       return isValidStringArray(value);

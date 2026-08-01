@@ -46,9 +46,14 @@ export default function Settings() {
       const search = config.panelSearch as Record<string, unknown>
       const extract = config.panelExtractCrawl as Record<string, unknown>
       const mcpAuth = config.mcpAuth ?? { enabled: false, apiKey: '' }
+      // include_answer 旧配置可能存 true（官方语义=快速答案），归一化为 basic 以匹配下拉选项
+      const rawIncludeAnswer = search.include_answer
+      const includeAnswer = rawIncludeAnswer === true || rawIncludeAnswer === 'true' ? 'basic' : (rawIncludeAnswer as string) ?? 'false'
+      const rawIncludeRawContent = search.include_raw_content
+      const includeRawContent = rawIncludeRawContent === true || rawIncludeRawContent === 'true' ? 'markdown' : (rawIncludeRawContent as string) ?? 'false'
       form.setFieldsValue({
-        include_answer: (search.include_answer as string) ?? 'false',
-        include_raw_content: (search.include_raw_content as string) ?? 'false',
+        include_answer: includeAnswer,
+        include_raw_content: includeRawContent,
         include_images: (search.include_images as boolean) ?? false,
         include_image_descriptions: (search.include_image_descriptions as boolean) ?? false,
         include_favicon: (search.include_favicon as boolean) ?? false,
@@ -139,9 +144,8 @@ export default function Settings() {
           <Select
             options={[
               { value: 'false', label: '关闭' },
-              { value: 'true', label: '快速答案（basic）' },
-              { value: 'basic', label: '基础答案' },
-              { value: 'advanced', label: '详细答案' },
+              { value: 'basic', label: '快速答案（basic，消耗 1 积分）' },
+              { value: 'advanced', label: '详细答案（advanced，更完整）' },
             ]}
           />
         </Form.Item>
@@ -149,33 +153,57 @@ export default function Settings() {
           <Select
             options={[
               { value: 'false', label: '关闭' },
-              { value: 'markdown', label: 'Markdown 格式' },
-              { value: 'text', label: '纯文本' },
+              { value: 'markdown', label: 'Markdown 格式（推荐）' },
+              { value: 'text', label: '纯文本（可能增加延迟）' },
             ]}
           />
         </Form.Item>
-        <Form.Item name="include_images" label="包含图片" valuePropName="checked">
+        <Form.Item
+          name="include_images"
+          label="包含图片"
+          valuePropName="checked"
+          extra="返回与查询相关的图片列表，以及每个结果内提取的图片"
+        >
           <Switch />
         </Form.Item>
-        <Form.Item name="include_image_descriptions" label="包含图片描述" valuePropName="checked">
+        <Form.Item
+          name="include_image_descriptions"
+          label="包含图片描述"
+          valuePropName="checked"
+          extra="需同时开启「包含图片」；为每张图片附带描述文本"
+        >
           <Switch />
         </Form.Item>
-        <Form.Item name="include_favicon" label="包含站点图标" valuePropName="checked">
+        <Form.Item
+          name="include_favicon"
+          label="包含站点图标"
+          valuePropName="checked"
+          extra="为每个搜索结果附上 favicon URL"
+        >
           <Switch />
         </Form.Item>
-        <Form.Item name="chunks_per_source" label="每来源内容片段数（1-5）">
-          <InputNumber min={1} max={5} style={{ width: 120 }} />
+        <Form.Item name="chunks_per_source" label="每来源内容片段数（1-3）">
+          <InputNumber min={1} max={3} style={{ width: 120 }} />
         </Form.Item>
-        <Form.Item name="include_domains" label="仅在这些域名内搜索（逗号分隔）">
+        <Form.Item name="include_domains" label="仅在这些域名内搜索（逗号分隔，最多 300 个）">
           <Input placeholder="example.com, blog.example.com" />
         </Form.Item>
-        <Form.Item name="exclude_domains" label="排除这些域名（逗号分隔）">
+        <Form.Item name="exclude_domains" label="排除这些域名（逗号分隔，最多 150 个）">
           <Input placeholder="spam.com, ads.com" />
         </Form.Item>
-        <Form.Item name="country" label="国家加权（小写英文）">
+        <Form.Item
+          name="country"
+          label="国家加权（小写英文全名）"
+          extra="仅 topic=general 时生效；必须用完整国家名（如 china / united states），不支持 ISO 代码（us/cn）"
+        >
           <Input placeholder="china / united states / 留空不设" />
         </Form.Item>
-        <Form.Item name="auto_parameters" label="自动配置搜索参数" valuePropName="checked">
+        <Form.Item
+          name="auto_parameters"
+          label="自动配置搜索参数"
+          valuePropName="checked"
+          extra="Tavily 根据查询内容自动调参；注意 search_depth 可能自动升为 advanced（2 积分/次），显式设置搜索深度可避免额外成本"
+        >
           <Switch />
         </Form.Item>
 
@@ -184,22 +212,32 @@ export default function Settings() {
           <Select
             options={[
               { value: 'basic', label: '基础（1 积分/5 URL）' },
-              { value: 'advanced', label: '高级（2 积分/5 URL，含表格）' },
+              { value: 'advanced', label: '高级（2 积分/5 URL，更完整，含表格/嵌入内容）' },
             ]}
           />
         </Form.Item>
         <Form.Item name="extract_format" label="内容格式">
           <Select
             options={[
-              { value: 'markdown', label: 'Markdown' },
-              { value: 'text', label: '纯文本' },
+              { value: 'markdown', label: 'Markdown（推荐）' },
+              { value: 'text', label: '纯文本（可能增加延迟）' },
             ]}
           />
         </Form.Item>
-        <Form.Item name="extract_include_images" label="包含图片" valuePropName="checked">
+        <Form.Item
+          name="extract_include_images"
+          label="包含图片"
+          valuePropName="checked"
+          extra="返回从页面中提取的图片 URL 列表"
+        >
           <Switch />
         </Form.Item>
-        <Form.Item name="extract_include_favicon" label="包含站点图标" valuePropName="checked">
+        <Form.Item
+          name="extract_include_favicon"
+          label="包含站点图标"
+          valuePropName="checked"
+          extra="为每个提取结果附上 favicon URL"
+        >
           <Switch />
         </Form.Item>
 
