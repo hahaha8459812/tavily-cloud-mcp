@@ -1,0 +1,14 @@
+{
+  "admin": {
+    "username": "admin",
+    "password": "admin123"
+  },
+  "panelSearch": {},
+  "panelExtractCrawl": {},
+  "apiKeys": [
+    {
+      "key": "tvly-your-real-api-key",
+      "accountToken": ""
+    }
+  ]
+}

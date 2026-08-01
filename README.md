@@ -18,8 +18,9 @@
 ```bash
 git clone https://github.com/hahaha8459812/tavily-cloud-mcp.git
 cd tavily-cloud-mcp
-cp .env.example .env
-# 编辑 .env 填入 TAVILY_API_KEYS
+cp .env.example .env          # 复制环境变量范例
+vim .env                      # 编辑：把 TAVILY_API_KEYS 换成你的真实 key
+cp config.example.json config.json   # 准备面板持久化文件（占位符，可先留着，用面板管理密钥）
 docker compose up -d
 ```
 
@@ -28,6 +29,25 @@ docker compose up -d
 - **管理面板**：http://localhost:8080/admin （默认密码 `admin123`，首次登录后请尽快修改）
 - **MCP 端点**：http://localhost:8080/mcp
 - **健康检查**：http://localhost:8080/health
+
+> 说明：`config.json` 是面板的持久化文件（密钥、参数、账号密码），
+> 被 docker-compose 挂载为卷。仓库提供 `config.example.json` 作为可复制范例；
+> 推荐启动后直接在面板"添加密钥"里管理，避免手动编辑。
+
+## 环境变量（.env）是做什么的
+
+`.env` 是 Docker Compose 读取的**环境变量文件**，用于在**首次启动前**注入初始配置。它的值通过 `docker-compose.yml` 的 `environment` 传入容器，并覆盖默认值。
+
+主要用途：
+
+| 变量 | 作用 |
+|---|---|
+| `PORT` | 服务端口，默认 8080 |
+| `TAVILY_API_KEY` | 单个 Tavily API Key（兜底） |
+| `TAVILY_API_KEYS` | 多 key 逗号分隔，启动时进入轮询池 |
+| `TAVILY_INCLUDE_ANSWER` 等 | 面板管控参数的环境变量兜底（面板配置优先） |
+
+**重要：`.env` 只负责"初始注入"**。启动后你在面板里做的所有修改（增删密钥、配置 Token、改参数、改密码）都持久化到挂载的 `config.json`，与 `.env` 无关。`.env` 与 `config.json` 是**两套独立配置源**，`.env` 优先级低于 `config.json`（`loadConfig` 先读 config.json 再回退环境变量）。
 
 ### 方式二：本地运行
 
