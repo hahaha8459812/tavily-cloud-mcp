@@ -65,6 +65,8 @@ export interface AppConfig {
   panelSearch: Record<string, unknown>;
   /** 面板管控的 Extract/Crawl 参数（对应 config.ts 的 PanelExtractCrawlConfig 字段） */
   panelExtractCrawl: Record<string, unknown>;
+  /** 调用记录缓冲条数上限（持久化配置；记录本身仅存内存，重启清空） */
+  callLogMaxEntries?: number;
 }
 
 /** scrypt 哈希前缀，用于识别新版密码格式 */
@@ -120,6 +122,7 @@ export function loadConfig(): AppConfig {
       sessionSecret: parsed.sessionSecret,
       panelSearch: parsed.panelSearch ?? {},
       panelExtractCrawl: parsed.panelExtractCrawl ?? {},
+      callLogMaxEntries: parsed.callLogMaxEntries,
     };
     // 文件存在但缺少必需字段时自动补全写回（旧版 config 升级为新结构，避免新旧字段混搭）；
     // 写回失败（如挂载卷只读）仅告警，不阻断本次读取，也不误报为配置文件损坏
@@ -142,6 +145,7 @@ export function loadConfig(): AppConfig {
           sessionSecret: reread.sessionSecret,
           panelSearch: reread.panelSearch ?? {},
           panelExtractCrawl: reread.panelExtractCrawl ?? {},
+          callLogMaxEntries: reread.callLogMaxEntries,
         });
       } catch (error) {
         console.warn(

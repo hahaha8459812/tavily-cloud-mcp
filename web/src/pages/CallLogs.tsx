@@ -64,7 +64,7 @@ export default function CallLogs() {
     try {
       const { maxEntries: savedMax } = await api.setCallLogMaxEntries(editingMax)
       setEditingMax(savedMax)
-      message.success(`保存条数上限已更新为 ${savedMax}（重启后恢复默认）`)
+      message.success(`保存条数上限已更新为 ${savedMax}（已持久化，重启后保留）`)
       await load(true)
     } catch (error) {
       message.error(error instanceof Error ? error.message : '保存失败')

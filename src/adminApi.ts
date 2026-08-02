@@ -412,6 +412,10 @@ export async function handleAdminApi(
           sendJson(res, 400, { error: "保存条数需为 10-1000 的整数" });
           return true;
         }
+        // 条数上限是持久化配置：写回 config.json，重启后保留（记录本身仍只存内存）
+        const config = loadConfig();
+        config.callLogMaxEntries = callLog.getMaxEntries();
+        saveConfig(config);
         sendJson(res, 200, { ok: true, maxEntries: callLog.getMaxEntries() });
         return true;
       }
