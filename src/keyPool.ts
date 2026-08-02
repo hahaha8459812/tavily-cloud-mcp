@@ -95,6 +95,13 @@ export class TavilyKeyPool {
   private lastRefreshAt = 0;
   /** 状态变化后的持久化回调（由 index.ts 接 line 到 persistKeys） */
   private onPersist: (() => void) | null = null;
+  /** 调用记录内存缓冲（可选注入；由 index.ts 提供，供面板"调用记录"页展示） */
+  private callLog: import("./callLog.js").CallLog | null = null;
+
+  /** 注入调用记录缓冲（仅内存，不持久化） */
+  setCallLog(callLog: import("./callLog.js").CallLog): void {
+    this.callLog = callLog;
+  }
 
   constructor(apiKeyEntries: Array<ApiKeyEntry | string>) {
     this.keys = [];
@@ -380,7 +387,8 @@ export class TavilyKeyPool {
     throw new Error(message);
   }
 
-  /** 输出一条 MCP 调用审计日志：时间/工具/耗时/key 指纹/消耗 credits（成功或失败） */
+  /** 输出一条 MCP 调用审计日志：时间/工具/耗时/key 指纹/消耗 credits（成功或失败）。
+   *  若已注入 CallLog，则同步写入内存缓冲（供面板"调用记录"页展示，不持久化）。 */
   private logCallAudit(
     operationName: string,
     key: PooledKey | null,
@@ -392,11 +400,27 @@ export class TavilyKeyPool {
     const costMs = Date.now() - startedAt;
     if (error) {
       console.error(`[审计] ${operationName} 失败 | key=${keyMasked} | 耗时=${costMs}ms | 原因=${error.message}`);
+      this.callLog?.add({
+        tool: operationName,
+        keyMasked,
+        costMs,
+        credits: null,
+        success: false,
+        error: error.message,
+      });
       return;
     }
     const credits = extractCreditsFromResponse(result);
     const creditsText = credits !== null ? `${credits} credits` : "credits 未知";
     console.log(`[审计] ${operationName} 成功 | key=${keyMasked} | 耗时=${costMs}ms | 消耗=${creditsText}`);
+    this.callLog?.add({
+      tool: operationName,
+      keyMasked,
+      costMs,
+      credits,
+      success: true,
+      error: null,
+    });
   }
 
   async search(params: TavilySearchParams): Promise<TavilySearchResponse> {

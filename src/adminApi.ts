@@ -1,6 +1,7 @@
 import type http from "node:http";
 import crypto from "node:crypto";
 import type { TavilyKeyPool } from "./keyPool.js";
+import type { CallLog } from "./callLog.js";
 import {
   loadConfig,
   saveConfig,
@@ -23,6 +24,8 @@ import {
  * - GET  /api/config                  读取面板参数
  * - PUT  /api/config                  保存面板参数
  * - POST /api/password                修改管理员密码
+ * - GET  /api/call-logs               读取 MCP 调用记录（内存缓冲，不持久化）
+ * - PUT  /api/call-logs/config        设置调用记录保存条数上限
  *
  * 登录态使用无状态签名 token（HMAC-SHA256）：token 内嵌过期时间，服务端不存 session。
  * 签名密钥持久化在 config.json（getOrCreateSessionSecret），重启后已签发的 token 依然有效。
@@ -163,6 +166,7 @@ export async function handleAdminApi(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   keyPool: TavilyKeyPool,
+  callLog: CallLog,
 ): Promise<boolean> {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
   if (!url.pathname.startsWith("/api/")) {
@@ -383,6 +387,32 @@ export async function handleAdminApi(
         config.admin.password = hashPassword(body.newPassword);
         saveConfig(config);
         sendJson(res, 200, { ok: true });
+        return true;
+      }
+
+      case "/api/call-logs": {
+        if (req.method === "GET") {
+          sendJson(res, 200, {
+            entries: callLog.getRecent(),
+            maxEntries: callLog.getMaxEntries(),
+          });
+          return true;
+        }
+        sendJson(res, 405, { error: "Method not allowed" });
+        return true;
+      }
+
+      case "/api/call-logs/config": {
+        if (req.method !== "PUT") {
+          sendJson(res, 405, { error: "Method not allowed" });
+          return true;
+        }
+        const body = (await readJsonBody(req)) as { maxEntries?: number };
+        if (typeof body.maxEntries !== "number" || !callLog.setMaxEntries(body.maxEntries)) {
+          sendJson(res, 400, { error: "保存条数需为 10-1000 的整数" });
+          return true;
+        }
+        sendJson(res, 200, { ok: true, maxEntries: callLog.getMaxEntries() });
         return true;
       }
 

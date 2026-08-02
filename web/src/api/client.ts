@@ -169,6 +169,23 @@ export interface StatusResponse extends PanelConfig {
   accounts: AccountUsageItem[];
 }
 
+/** 单条 MCP 调用记录（内存缓冲，不持久化） */
+export interface CallLogEntry {
+  id: number
+  tool: string
+  keyMasked: string
+  costMs: number
+  credits: number | null
+  success: boolean
+  error: string | null
+  at: number
+}
+
+export interface CallLogResponse {
+  entries: CallLogEntry[]
+  maxEntries: number
+}
+
 export const api = {
   login: (password: string) =>
     request<LoginResponse>("/login", { method: "POST", body: { password } }),
@@ -215,5 +232,11 @@ export const api = {
     request<{ ok: boolean }>("/password", {
       method: "POST",
       body: { oldPassword, newPassword },
+    }),
+  getCallLogs: () => request<CallLogResponse>("/call-logs"),
+  setCallLogMaxEntries: (maxEntries: number) =>
+    request<{ ok: boolean; maxEntries: number }>("/call-logs/config", {
+      method: "PUT",
+      body: { maxEntries },
     }),
 };

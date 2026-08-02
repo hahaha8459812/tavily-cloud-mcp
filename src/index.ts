@@ -21,6 +21,7 @@ import {
   isPlaceholderPassword,
 } from "./configStore.js";
 import { handleAdminApi, persistKeys } from "./adminApi.js";
+import { CallLog } from "./callLog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -91,6 +92,10 @@ const MAX_BODY_BYTES = 1024 * 1024; // 请求体上限 1MB
 const keyPool = new TavilyKeyPool(loadTavilyApiKeyEntries());
 // 停用状态变化（429/432/433/401 停用、手动恢复、额度恢复、套餐缓存更新）时落盘 config.json
 keyPool.setPersistCallback(() => persistKeys(keyPool));
+
+// MCP 调用记录内存缓冲（仅内存，不持久化；重启清空），供面板"调用记录"页展示
+const callLog = new CallLog();
+keyPool.setCallLog(callLog);
 
 // 启动后异步预热各密钥额度缓存，保证管理面板首屏即可显示真实额度，无需手动刷新
 void keyPool.refreshUsage().catch((error) => {
@@ -855,7 +860,7 @@ async function handleRequest(
   }
 
   // 管理面板 API
-  const handledApi = await handleAdminApi(req, res, keyPool);
+  const handledApi = await handleAdminApi(req, res, keyPool, callLog);
   if (handledApi) {
     return;
   }

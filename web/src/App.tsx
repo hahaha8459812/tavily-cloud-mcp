@@ -8,10 +8,12 @@ import {
   LogoutOutlined,
   ThunderboltOutlined,
   MenuOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
+import CallLogs from './pages/CallLogs'
 import {
   api,
   getToken,
@@ -119,10 +121,15 @@ function PanelLayout() {
     navigate('/login')
   }
 
-  const selectedKey = location.pathname.startsWith('/settings') ? '/settings' : '/'
+  const selectedKey = location.pathname.startsWith('/settings')
+    ? '/settings'
+    : location.pathname.startsWith('/call-logs')
+      ? '/call-logs'
+      : '/'
 
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: '概览' },
+    { key: '/call-logs', icon: <HistoryOutlined />, label: '调用记录' },
     { key: '/settings', icon: <SettingOutlined />, label: '参数配置' },
   ]
 
@@ -238,6 +245,7 @@ function PanelLayout() {
       <div className="panel-content">
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/call-logs" element={<CallLogs />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
