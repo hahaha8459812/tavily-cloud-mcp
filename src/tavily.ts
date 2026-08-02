@@ -26,6 +26,8 @@ export interface TavilySearchParams {
   excludeDomains?: string[];
   country?: string;
   autoParameters?: boolean;
+  /** 是否在响应中返回 usage（credits 消耗），供服务端审计记录使用 */
+  includeUsage?: boolean;
 }
 
 export interface TavilyExtractParams {
@@ -267,6 +269,7 @@ export class TavilyClient {
         exclude_domains: params.excludeDomains,
         country: params.country,
         auto_parameters: params.autoParameters,
+        include_usage: params.includeUsage,
       },
     })) as TavilySearchResponse;
   }

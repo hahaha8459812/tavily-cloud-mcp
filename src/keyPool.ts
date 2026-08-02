@@ -425,28 +425,28 @@ export class TavilyKeyPool {
 
   async search(params: TavilySearchParams): Promise<TavilySearchResponse> {
     return this.executeWithFailover(
-      (client) => client.search(params),
+      (client) => client.search({ ...params, includeUsage: true }),
       "搜索",
     );
   }
 
   async extract(params: TavilyExtractParams): Promise<TavilyExtractResponse> {
     return this.executeWithFailover(
-      (client) => client.extract(params),
+      (client) => client.extract({ ...params, includeUsage: true }),
       "提取",
     );
   }
 
   async crawl(params: TavilyCrawlParams): Promise<TavilyCrawlResponse> {
     return this.executeWithFailover(
-      (client) => client.crawl(params),
+      (client) => client.crawl({ ...params, includeUsage: true }),
       "爬取",
     );
   }
 
   async map(params: TavilyMapParams): Promise<TavilyMapResponse> {
     return this.executeWithFailover(
-      (client) => client.map(params),
+      (client) => client.map({ ...params, includeUsage: true }),
       "站点地图",
     );
   }
