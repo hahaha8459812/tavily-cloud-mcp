@@ -11,6 +11,12 @@ services:
       # config.json 挂载为持久卷：面板配置的密钥、参数、账号密码都保存在这里
       # 首次部署请先 cp config.example.json config.json
       - ./config.json:/app/config.json
+    # 日志轮转：限制单文件 10MB、最多 3 份，防止长期运行撑爆 /var/lib/docker
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
       interval: 30s

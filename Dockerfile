@@ -23,6 +23,8 @@ RUN npm run build
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_ENV=production
+# 内存保护：限制 V8 堆上限，防止会话/轮询异常导致的无限增长拖垮宿主机（此服务 512MB 足够）
+ENV NODE_OPTIONS=--max-old-space-size=512
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev

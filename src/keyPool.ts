@@ -329,6 +329,8 @@ export class TavilyKeyPool {
 
   /**
    * 在密钥池上执行一次带故障转移的 Tavily 调用。
+   * 成功/最终失败都会输出一条审计日志（时间、工具、耗时、key 指纹、消耗 credits），
+   * 用于追踪额度消耗来源与各 key 使用分布。
    * @param operation 针对某个 TavilyClient 执行的实际请求
    * @returns 请求结果
    * @throws 所有密钥都不可用或全部失败时抛出最后一个错误
@@ -339,6 +341,8 @@ export class TavilyKeyPool {
   ): Promise<T> {
     const attempted = new Set<PooledKey>();
     let lastError: Error | null = null;
+    let lastKey: PooledKey | null = null;
+    const startedAt = Date.now();
 
     for (let round = 0; round < this.keys.length; round++) {
       const key = this.pickNextUsableKey();
@@ -349,10 +353,12 @@ export class TavilyKeyPool {
         continue;
       }
       attempted.add(key);
+      lastKey = key;
 
       try {
         const result = await operation(key.client);
         this.resetKeyHealth(key);
+        this.logCallAudit(operationName, key, startedAt, result, null);
         return result;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -367,10 +373,30 @@ export class TavilyKeyPool {
       }
     }
 
+    this.logCallAudit(operationName, lastKey, startedAt, null, lastError);
     const message = lastError
       ? `所有密钥均不可用：${lastError.message}`
       : "密钥池中无可用密钥";
     throw new Error(message);
+  }
+
+  /** 输出一条 MCP 调用审计日志：时间/工具/耗时/key 指纹/消耗 credits（成功或失败） */
+  private logCallAudit(
+    operationName: string,
+    key: PooledKey | null,
+    startedAt: number,
+    result: unknown,
+    error: Error | null,
+  ): void {
+    const keyMasked = key ? this.maskKey(key.apiKey) : "无可用密钥";
+    const costMs = Date.now() - startedAt;
+    if (error) {
+      console.error(`[审计] ${operationName} 失败 | key=${keyMasked} | 耗时=${costMs}ms | 原因=${error.message}`);
+      return;
+    }
+    const credits = extractCreditsFromResponse(result);
+    const creditsText = credits !== null ? `${credits} credits` : "credits 未知";
+    console.log(`[审计] ${operationName} 成功 | key=${keyMasked} | 耗时=${costMs}ms | 消耗=${creditsText}`);
   }
 
   async search(params: TavilySearchParams): Promise<TavilySearchResponse> {
@@ -628,4 +654,20 @@ export function parseIsoUtcMs(iso: string): number | null {
   const normalized = hasTimezone ? iso : `${iso}Z`;
   const ms = Date.parse(normalized);
   return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * 从 Tavily 响应中安全提取消耗的 credits（响应体通常为 { usage: { credits: number }, ... }）。
+ * 提取失败（结构不符）返回 null，不抛错，避免审计日志干扰正常调用。
+ */
+function extractCreditsFromResponse(result: unknown): number | null {
+  if (typeof result !== "object" || result === null) {
+    return null;
+  }
+  const usage = (result as { usage?: unknown }).usage;
+  if (typeof usage !== "object" || usage === null) {
+    return null;
+  }
+  const credits = (usage as { credits?: unknown }).credits;
+  return typeof credits === "number" && Number.isFinite(credits) ? credits : null;
 }
